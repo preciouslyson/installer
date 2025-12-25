@@ -58,7 +58,7 @@ class InstallCommand extends Command
             $io->text("Next steps:");
             $io->listing([
                 "cd $projectName",
-                "php artisan start:server",
+                "php artisan server:start",
                 "Visit http://localhost:3000 in your browser",
             ]);
             

@@ -36,7 +36,6 @@ class Installer
         $this->runComposerInstall();
         $this->generateAppKey();
         $this->validateInstallation();
-        $this->displaySuccessMessage($projectName);
     }
 
     private function checkRequirements(): void
@@ -357,14 +356,6 @@ ENV;
         }
 
         return 'composer';
-    }
-
-    private function displaySuccessMessage(string $projectName): void
-    {
-        $this->io->success([
-            'Machinjiri application created successfully!',
-            "Project directory: {$this->projectDir}",
-        ]);
     }
     
     private function createFiles(): void
@@ -1546,7 +1537,6 @@ return [
         ],
         'prefix' => getenv('CACHE_PREFIX', 'machinjiri_cache'),
     ],
-CACHE_DRIVER
     /*
     |--------------------------------------------------------------------------
     | Session Configuration
