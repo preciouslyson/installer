@@ -37,7 +37,7 @@ Add to your existing project's composer.json:
 ```json
 {
     "require-dev": {
-        "preciouslyson/installer": "^1.1.3"
+        "preciouslyson/installer": "^1.0.0"
     }
 }
 ```
@@ -54,12 +54,6 @@ After global installation, create a new Machinjiri project:
 
 ```bash
 machinjiri new myapp
-```
-
-Or using the longer command:
-
-```bash
-machinjiri:install myapp
 ```
 
 Available Commands
