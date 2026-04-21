@@ -158,7 +158,6 @@ class Installer
           'app/Providers',
           'app/Queue/Drivers',
           'tests/Unit',
-          'build',
         ];
 
         foreach ($directories as $directory) {
@@ -1344,106 +1343,7 @@ class DatabaseServiceProvider extends ServiceProvider
     }
     
     public function boot(): void
-    {
-        /**
-         * Run Migrations first before seeding the database and running factories
-        */
-        try {
-          $this->migrate();
-        } catch (MachinjiriException $e) {
-          (new Logger('db-migration'))->critical($e->getMessage());
-        }
-        
-        try {
-          $result = $this->runFactories();
-          foreach ($result as $key => $factory) {
-            if (isset($factory['status']) && $factory['status'] == 'error') {
-              (new Logger('db-factory'))->warning(
-                "Unable to run factory <" . $key . "> due to: " .
-                $factory['error']);
-            }
-          }
-        } catch (MachinjiriException $e) {
-          (new Logger('db-factory'))->critical($e->getMessage());
-        }
-        
-        try {
-          $seed = $this->seedDatabase();
-          foreach ($seed as $key => $seeder) {
-            if (isset($seeder['status']) && $seeder['status'] == 'error') {
-              (new Logger('db-seeder'))->warning(
-                "Unable to run seeder <" . $seeder['seeder'] . "> due to: " .
-                $seeder['error']);
-            }
-          }
-        } catch (MachinjiriException $e) {
-          (new Logger('db-seeder'))->critical($e->getMessage());
-        }
-        
-    }
-    
-    public function migrate (): void 
-    {
-      $this->resolve('migration.manager')->migrate();
-    }
-
-
-    /**
-     * Run seeders
-     */
-    public function seedDatabase(array $seeders = [], bool $inTransaction = false): array
-    {
-        try {
-            $seederManager = new SeederManager($this->app);
-            
-            if ($inTransaction) {
-                return $seederManager->runAllInTransaction();
-            } elseif (count($seeders) == 0) {
-                return $seederManager->runAll();
-            } else {
-                $results = [];
-                foreach ($seeders as $seeder) {
-                    $results[] = $seederManager->run($seeder);
-                }
-                return $results;
-            }
-        } catch (\Exception $e) {
-            throw new MachinjiriException(
-                "Failed to seed database: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
-    }
-
-    /**
-     * Run factories
-     */
-    public function runFactories(array $definitions = []): array
-    {
-        try {
-            $factoryManager = $this->resolve('db.factory');
-            
-            if (empty($definitions)) {
-                // Run all factories once
-                $allModels = $factoryManager->list();
-                $definitions = [];
-                foreach ($allModels as $factory) {
-                    $definitions[$factory['model']] = 1; // Run each factory once
-                }
-            }
-            
-            return $factoryManager->runMultiple($definitions);
-        } catch (\Exception $e) {
-            throw new MachinjiriException(
-                "Failed to run factories: " . $e->getMessage(),
-                500,
-                $e
-            );
-        }
-    }
-
-
+    {}
     /**
      * Get the services provided by the provider
      */
@@ -1455,7 +1355,6 @@ class DatabaseServiceProvider extends ServiceProvider
             array_keys($this->aliases)
         );
     }
-    
 }
 PHP;
     }
