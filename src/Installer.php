@@ -16,9 +16,6 @@ class Installer
     private ?ProjectValidator $validator = null;
     private ?InstallerLogger $logger = null;
     private ?InstallationManager $manager = null;
-    
-    const DOCS_URL = ""; // coming soon
-    const FORUMS_URL = ""; // coming soon
     const MIN_DISK_SPACE_MB = 100;
     
     public function __construct(SymfonyStyle $io, bool $verbose = false)
@@ -45,17 +42,15 @@ class Installer
             $this->createProjectStructure();
             $this->progress(5, 'Creating project files...');
             $this->createFiles();
-            $this->progress(6, 'Copying migrations...');
-            $this->copyMigrations();
-            $this->progress(7, 'Writing composer.json...');
+            $this->progress(6, 'Writing composer.json...');
             $this->writeComposerJson($projectName);
-            $this->progress(8, 'Writing environment configuration...');
+            $this->progress(7, 'Writing environment configuration...');
             $this->writeEnvironmentFile();
-            $this->progress(9, 'Installing dependencies via Composer...');
+            $this->progress(8, 'Installing dependencies via Composer...');
             $this->runComposerInstall();
-            $this->progress(10, 'Generating application key...');
+            $this->progress(9, 'Generating application key...');
             $this->generateAppKey();
-            $this->progress(11, 'Validating installation...');
+            $this->progress(10, 'Validating installation...');
             $this->validateInstallation();
             
             $this->logger->success('Installation completed successfully');
@@ -158,6 +153,7 @@ class Installer
           'app/Providers',
           'app/Queue/Drivers',
           'tests/Unit',
+          'tests/Features',
         ];
 
         foreach ($directories as $directory) {
@@ -373,8 +369,6 @@ ENV;
       return [
         'version' => $this->options['version'] ?? 'latest',
         'project_name' => basename($this->projectDir),
-        'docs_url' => self::DOCS_URL,
-        'forums_url' => self::FORUMS_URL,
         'date' => date('Y-m-d'),
       ];
     }
@@ -420,7 +414,7 @@ ENV;
         $write($this->projectDir . '/public/index.php', $this->publicIndexTemplate());
         $write($this->projectDir . '/routes/web.php', $this->webRouteTemplate());
         $write($this->projectDir . '/app/Controllers/HomeController.php', $this->homeControllerTemplate());
-        $write($this->projectDir . '/resources/views/welcome.mg.php', $this->welcomeTemplate());
+        $write($this->projectDir . '/resources/views/welcome.view.php', $this->welcomeTemplate());
 
         $write($this->projectDir . '/.gitignore', $this->gitIgnoreTemplate());
 
@@ -438,50 +432,12 @@ ENV;
         $write($this->projectDir . '/app/Providers/DatabaseServiceProvider.php', $this->DatabaseServiceProviderTemplate());
 
         $write($this->projectDir . '/phpunit.xml', $this->phpunitTemplate());
-        
-        $write($this->projectDir . '/app/Providers/ViteServiceProvider.php', $this->viteServiceProviderTemplate());
-        
-        $write($this->projectDir . '/config/vite.php', $this->viteConfigTemplate());
-    }
-
-    private function copyMigrations(): void
-    {
-        // Get the installer's migrations directory
-        $migrationsSourceDir = __DIR__ . '/../migrations';
-        $migrationsDestDir = $this->projectDir . '/database/migrations';
-
-        // Create destination directory if it doesn't exist
-        if (!is_dir($migrationsDestDir)) {
-            if (!mkdir($migrationsDestDir, 0755, true)) {
-                throw new \RuntimeException("Failed to create migrations directory: {$migrationsDestDir}");
-            }
-        }
-
-        // Check if source migrations directory exists
-        if (!is_dir($migrationsSourceDir)) {
-            throw new \RuntimeException("Migrations source directory not found: {$migrationsSourceDir}");
-        }
-
-        // Copy all migration files
-        $files = array_diff(scandir($migrationsSourceDir), ['.', '..']);
-        foreach ($files as $file) {
-            $sourcePath = $migrationsSourceDir . DIRECTORY_SEPARATOR . $file;
-            $destPath = $migrationsDestDir . DIRECTORY_SEPARATOR . $file;
-
-            // Only copy PHP files
-            if (is_file($sourcePath) && pathinfo($file, PATHINFO_EXTENSION) === 'php') {
-                if (!copy($sourcePath, $destPath)) {
-                    throw new \RuntimeException("Failed to copy migration file: {$file}");
-                }
-            }
-        }
     }
     
     /* ---------- Helpers & templates ---------- */
     
     private function bootstrapTemplate(): string { return <<<PHP
 <?php
-
 /*
  * Application Bootstrapper
  * This file initializes the Machinjiri application.
@@ -492,73 +448,48 @@ ENV;
 declare(strict_types=1);
 
 /* Start session management */
-@session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 /* Define base and current working directory constants */
-define('BASE', __DIR__ . '/../');
+define('BASE', dirname(__DIR__) . DIRECTORY_SEPARATOR);
 define('CWD', __DIR__);
 
 /* Autoload dependencies using Composer */
-require BASE . 'vendor/autoload.php';
+\$composerAutoload = BASE . 'vendor/autoload.php';
+if (!is_file(\$composerAutoload)) {
+    die('Composer autoloader not found. Run `composer install`.');
+}
+require \$composerAutoload;
 
 /* Import necessary classes */
 use Mlangeni\Machinjiri\Core\Machinjiri;
-use Mlangeni\Machinjiri\Core\Container;
-use Mlangeni\Machinjiri\Core\ProviderLoader;
+use Mlangeni\Machinjiri\Core\Http\HttpResponse;
+use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
 
 // Load helper functions
 require_once CWD . '/helpers.php';
 
 /**
- * Initialize the application
- *
- * @param array \$config Application configuration
- * @return Container
+ * Read APP_DEBUG from environment (supports `.env` or server env)
+ * Default to true (development) if not explicitly set to false.
  */
-function init_app(array \$config = []): Container
-{
-    // Create container
-    \$container = new Container();
-    
-    // Set configuration
-    foreach (\$config as \$key => \$value) {
-        \$container->configurations[\$key] = \$value;
-    }
-    
-    // Set the global instance
-    Container::setInstance(\$container);
-    
-    // Create and set provider loader
-    \$providerLoader = new ProviderLoader(\$container);
-    \$container->providerLoader = \$providerLoader;
-    
-    // Register providers
-    \$providerLoader->register();
-    
-    \$providerLoader->boot();
-    
-    return \$container;
-}
+\$debug = filter_var(getenv('APP_DEBUG') ?: true, FILTER_VALIDATE_BOOLEAN);
 
 /**
- * Get the application container (alias for app())
- *
- * @return Container|null
+ * Instantiating the Machinjiri Framework
  */
-function container(): ?Container
-{
-    return app();
-}
-
-
-\$machinjiri = Machinjiri::App(CWD, true); // True for Development and False for Production
-
+\$machinjiri = Machinjiri::App(CWD, \$debug);
+/**
+ * Start App Entry Logger
+ */
+\$log = new Logger('app_main');
 PHP;
     }
 
     private function publicIndexTemplate(): string { return <<<PHP
 <?php
-
 /*
  * Public Entry Point
  * This file serves as the front controller for all HTTP requests.
@@ -567,9 +498,29 @@ PHP;
  */
 require __DIR__ . '/../bootstrap/app.php';
 
-/* Initialize and run the application */
-\$machinjiri->init();
-
+try {
+    /* Initialise and run the application (includes request handling & response sending) */
+    \$machinjiri->init();
+} catch (Throwable \$e) {
+    \$log->error(\$e->getMessage(), [
+      'file' => \$e->getFile(),
+      'line' => \$e->getLine(),
+    ]);
+    /* Send a generic 500 error page in production, detailed error in debug mode */
+    \$isDebug = defined('APP_DEBUG') ? APP_DEBUG : false;
+    if (\$isDebug) {
+      (new HttpResponse())
+      ->setStatusCode(500)
+      ->setBody('<h1>Application Error</h1><pre>' . htmlspecialchars((string) \$e) . '</pre>')
+      ->send();
+    } else {
+      (new HttpResponse())
+      ->setStatusCode(500)
+      ->setBody('<h1>Server Error</h1><p>Something went wrong. Please try again later.</p>')
+      ->send();
+    }
+    exit(1);
+}
 /* Handle the incoming request and send the response */
 PHP;
     }
@@ -587,7 +538,7 @@ use Mlangeni\Machinjiri\Core\Routing\Router;
  */
 
 /* Example Route */
-Router::get('/', 'HomeController@index');
+Router::get('/', 'HomeController@index', 'welcome');
 
 
 
@@ -622,9 +573,7 @@ PHP;
     }
 
     private function welcomeTemplate(): string { 
-      $version = $this->getTemplateData()['version'];
-      $docsUrl = $this->getTemplateData()['docs_url'];
-      $docsForumUrl = $this->getTemplateData()['forums_url'];
+      $version = ($this->getTemplateData()['version'] === '*') ? 'Latest' : $this->getTemplateData()['version'];
       $date = $this->getTemplateData()['date'];
       $appName = $this->getTemplateData()['project_name'];
 
@@ -634,502 +583,498 @@ PHP;
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Machinjiri - Welcome</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Machinjiri - Your Cozy Dev Space</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        :root {
-            --primary: #6f42c1;
-            --secondary: #20c997;
-            --light: #f8f9fa;
-            --dark: #212529;
-            --success: #28a745;
-            --info: #17a2b8;
-            --border-radius: 10px;
-            --box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
-            --transition: all 0.3s ease;
-        }
-
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         body {
-            background-color: #f9fafc;
-            color: #333;
-            line-height: 1.6;
+            background: #FCF7F0;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', 'Poppins', 'Roboto', sans-serif;
+            color: #2E2C2A;
+            line-height: 1.5;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(111, 66, 193, 0.05) 0%, transparent 20%),
-                radial-gradient(circle at 90% 80%, rgba(32, 201, 151, 0.05) 0%, transparent 20%);
-        }
-
-        .success-container {
-            max-width: 1000px;
-            width: 100%;
-            margin: 0 auto;
-        }
-
-        .success-header {
-            background: linear-gradient(135deg, var(--primary) 0%, #5a32a3 100%);
-            padding: 40px;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
-            text-align: center;
+            padding: 2rem 1.5rem;
             position: relative;
-            overflow: hidden;
-            box-shadow: var(--box-shadow);
         }
 
-        .success-header::before {
+        /* cozy background texture */
+        body::before {
             content: "";
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.2) 1px, transparent 1px);
-            background-size: 20px 20px;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(#E8DCCC 1px, transparent 1px);
+            background-size: 28px 28px;
             opacity: 0.3;
-            animation: float 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
         }
 
-        .success-icon {
-            font-size: 5rem;
-            color: white;
-            margin-bottom: 20px;
-            position: relative;
-            z-index: 1;
-            animation: pulse 2s infinite;
-        }
-
-        .success-title {
-            font-size: 3rem;
-            font-weight: 800;
-            margin-bottom: 10px;
-            color: white;
-            position: relative;
-            z-index: 1;
-        }
-
-        .success-subtitle {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.9);
-            max-width: 600px;
+        .cozy-container {
+            max-width: 1280px;
             margin: 0 auto;
             position: relative;
-            z-index: 1;
+            z-index: 2;
         }
 
-        .success-content {
-            background-color: white;
-            border-radius: 0 0 var(--border-radius) var(--border-radius);
-            overflow: hidden;
-            box-shadow: var(--box-shadow);
-            padding: 40px;
+        /* header section – soft and glowing */
+        .welcome-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            animation: fadeSlideUp 0.6s ease-out;
         }
 
-        .installation-details {
+        .cozy-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #FFF3E6;
+            padding: 0.5rem 1.2rem;
+            border-radius: 60px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #C97E5A;
+            border: 1px solid #FFE2CC;
+            margin-bottom: 1.2rem;
+            backdrop-filter: blur(2px);
+        }
+
+        .cozy-badge i {
+            font-size: 1rem;
+        }
+
+        .welcome-header h1 {
+            font-size: 3.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #E68A5E, #C4633A);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .welcome-header h1 i {
+            background: none;
+            color: #E68A5E;
+            font-size: 2.8rem;
+        }
+
+        .tagline {
+            font-size: 1.2rem;
+            color: #6B5E53;
+            max-width: 580px;
+            margin: 0 auto;
+            background: rgba(255, 245, 235, 0.7);
+            padding: 0.6rem 1.4rem;
+            border-radius: 48px;
+            backdrop-filter: blur(4px);
+        }
+
+        /* cozy card style */
+        .card {
+            background: #FFFFFFDD;
+            backdrop-filter: blur(2px);
+            border-radius: 32px;
+            padding: 1.8rem;
+            box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.02);
+            transition: all 0.25s ease;
+            border: 1px solid #F2E5D8;
+        }
+
+        .card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 20px 32px -12px rgba(90, 50, 25, 0.12);
+            border-color: #FADDC7;
+        }
+
+        /* grid layout */
+        .grid-2cols {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 40px;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2.5rem;
         }
 
-        .detail-card {
-            background-color: white;
-            border-radius: var(--border-radius);
-            padding: 25px;
-            border-left: 5px solid var(--secondary);
-            transition: var(--transition);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            border: 1px solid #eaeaea;
+        .detail-list {
+            list-style: none;
+            margin-top: 0.8rem;
         }
 
-        .detail-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
-        }
-
-        .detail-header {
+        .detail-list li {
+            margin-bottom: 0.7rem;
             display: flex;
             align-items: center;
-            margin-bottom: 15px;
-            color: var(--primary);
+            gap: 10px;
         }
 
-        .detail-header i {
-            font-size: 1.5rem;
-            margin-right: 12px;
+        .detail-list li i {
+            color: #E68A5E;
+            width: 22px;
+            font-size: 1rem;
         }
 
-        .detail-header h3 {
-            font-size: 1.3rem;
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #F0EEE9;
+            padding: 0.35rem 1rem;
+            border-radius: 60px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #926B4B;
+            margin-top: 1rem;
+            border: 1px solid #E9DDD0;
         }
 
-        .detail-content {
-            font-size: 1.1rem;
-            color: #555;
-        }
-
-        .detail-content ul {
-            list-style-type: none;
-            margin-top: 10px;
-        }
-
-        .detail-content li {
-            margin-bottom: 8px;
-            padding-left: 25px;
-            position: relative;
-        }
-
-        .detail-content li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: var(--secondary);
-            font-weight: bold;
-        }
-
-        .status-badge {
-            display: inline-block;
-            background-color: rgba(32, 201, 151, 0.15);
-            color: var(--secondary);
-            padding: 5px 15px;
-            border-radius: 50px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-top: 10px;
-            border: 1px solid rgba(32, 201, 151, 0.3);
-        }
-
-        .quick-actions {
-            background-color: rgba(111, 66, 193, 0.08);
-            border-radius: var(--border-radius);
-            padding: 30px;
-            margin-bottom: 40px;
-            border: 1px solid rgba(111, 66, 193, 0.2);
-        }
-
-        .quick-actions h2 {
-            text-align: center;
-            margin-bottom: 25px;
-            color: var(--primary);
-            font-size: 1.8rem;
-        }
-
+        /* quick actions grid */
         .action-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0 2rem;
         }
 
-        .action-card {
-            background-color: white;
-            border-radius: var(--border-radius);
-            padding: 25px;
+        .action-item {
+            background: #FFFFFF;
+            border-radius: 28px;
+            padding: 1.5rem 1rem;
             text-align: center;
-            transition: var(--transition);
-            border: 1px solid #eaeaea;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            transition: all 0.2s;
+            border: 1px solid #F1E3D6;
+            box-shadow: 0 6px 12px -6px rgba(0, 0, 0, 0.03);
         }
 
-        .action-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+        .action-item:hover {
+            background: #FFF9F3;
+            border-color: #EECEB6;
+            transform: scale(0.98);
         }
 
         .action-icon {
-            font-size: 2.5rem;
-            color: var(--primary);
-            margin-bottom: 15px;
-            height: 70px;
-            width: 70px;
+            background: #FCE9DE;
+            width: 64px;
+            height: 64px;
+            border-radius: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background-color: rgba(111, 66, 193, 0.1);
-            border-radius: 50%;
-        }
-
-        .action-card h3 {
-            margin-bottom: 10px;
-            font-size: 1.3rem;
-            color: #333;
-        }
-
-        .action-card p {
-            font-size: 0.95rem;
-            color: #666;
-            margin-bottom: 20px;
-            flex-grow: 1;
-        }
-
-        .action-btn {
-            display: inline-block;
-            background-color: var(--primary);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: var(--transition);
-            width: 100%;
-            text-align: center;
-        }
-
-        .action-btn:hover {
-            background-color: #5a32a3;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
-        }
-
-        .action-btn.secondary {
-            background-color: var(--secondary);
-            color: white;
-        }
-
-        .action-btn.secondary:hover {
-            background-color: #1aa67d;
-        }
-
-        .next-steps {
-            margin-top: 40px;
-            padding-top: 30px;
-            border-top: 1px solid #eaeaea;
-        }
-
-        .next-steps h2 {
-            text-align: center;
-            margin-bottom: 25px;
-            color: var(--primary);
+            margin: 0 auto 1rem;
             font-size: 1.8rem;
+            color: #E68A5E;
+        }
+
+        .action-item h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #3E332A;
+        }
+
+        .action-item p {
+            font-size: 0.85rem;
+            color: #7C6B5C;
+            margin-bottom: 1.2rem;
+        }
+
+        .cozy-btn {
+            background: #E68A5E;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 60px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            color: white;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            text-decoration: none;
+            justify-content: center;
+        }
+
+        .cozy-btn.outline {
+            background: transparent;
+            border: 1px solid #E6CFBC;
+            color: #A57253;
+        }
+
+        .cozy-btn.outline:hover {
+            background: #F8EDE3;
+            border-color: #E68A5E;
+            color: #C4633A;
+        }
+
+        .cozy-btn:hover {
+            background: #CD7350;
+            transform: translateY(-2px);
+        }
+
+        /* steps area */
+        .steps-wrapper {
+            background: #FFF9F3;
+            border-radius: 32px;
+            padding: 2rem;
+            margin: 1.5rem 0;
+            border: 1px solid #F7E8DB;
+        }
+
+        .steps-title {
+            font-size: 1.7rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 1.8rem;
+            color: #3E332A;
         }
 
         .steps-container {
             display: flex;
             flex-direction: column;
-            gap: 20px;
-            max-width: 800px;
-            margin: 0 auto;
+            gap: 1.2rem;
         }
 
-        .step {
+        .step-row {
             display: flex;
-            align-items: flex-start;
-            background-color: white;
-            border-radius: var(--border-radius);
-            padding: 20px;
-            border-left: 5px solid var(--primary);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
-            border: 1px solid #f0f0f0;
+            align-items: center;
+            gap: 1rem;
+            background: white;
+            padding: 1rem 1.4rem;
+            border-radius: 28px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+            border: 1px solid #F3E4D5;
+            transition: all 0.2s;
         }
 
         .step-number {
-            background-color: var(--primary);
-            color: white;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
+            background: #FCE5D8;
+            width: 42px;
+            height: 42px;
             display: flex;
             align-items: center;
             justify-content: center;
+            border-radius: 30px;
             font-weight: 800;
             font-size: 1.2rem;
-            margin-right: 20px;
-            flex-shrink: 0;
+            color: #E68A5E;
         }
 
-        .step-content h3 {
-            margin-bottom: 8px;
-            color: #333;
+        .step-content {
+            flex: 1;
+        }
+
+        .step-content h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 4px;
         }
 
         .step-content p {
-            color: #555;
+            font-size: 0.9rem;
+            color: #6F5E4E;
         }
 
         .step-content code {
-            background-color: #f5f5f5;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            color: var(--primary);
-            margin-top: 5px;
-            display: inline-block;
-            border: 1px solid #e0e0e0;
+            background: #F5EDE4;
+            padding: 0.2rem 0.6rem;
+            border-radius: 24px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            color: #C4633A;
         }
 
-        .footer-note {
+        .footer-cozy {
+            margin-top: 2rem;
             text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #eaeaea;
-            font-size: 0.9rem;
-            color: #666;
+            font-size: 0.85rem;
+            color: #A48E78;
+            border-top: 1px solid #F0E0D2;
+            padding-top: 2rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
         }
 
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
-
-        @keyframes float {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @media (max-width: 768px) {
-            .success-header {
-                padding: 30px 20px;
-            }
-            
-            .success-title {
-                font-size: 2.2rem;
-            }
-            
-            .success-subtitle {
-                font-size: 1rem;
-            }
-            
-            .success-content {
-                padding: 25px;
-            }
-            
-            .installation-details {
-                grid-template-columns: 1fr;
-            }
-            
-            .action-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .step {
-                flex-direction: column;
-            }
-            
-            .step-number {
-                margin-right: 0;
-                margin-bottom: 15px;
-            }
-        }
-
-        /* Additional light mode specific styles */
-        .detail-content strong {
-            color: #333;
-        }
-
-        a {
-            color: var(--primary);
+        .footer-links a {
+            color: #B47C5A;
             text-decoration: none;
+            margin: 0 0.7rem;
+            transition: color 0.2s;
         }
 
-        a:hover {
+        .footer-links a:hover {
+            color: #E68A5E;
             text-decoration: underline;
         }
 
-        .action-card .action-icon {
-            box-shadow: 0 4px 10px rgba(111, 66, 193, 0.15);
+        @keyframes fadeSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        .detail-card .detail-header {
-            border-bottom: 1px solid #f0f0f0;
-            padding-bottom: 10px;
+        @media (max-width: 680px) {
+            body { padding: 1.2rem; }
+            .welcome-header h1 { font-size: 2.2rem; }
+            .tagline { font-size: 1rem; }
+            .step-row { flex-direction: column; align-items: flex-start; }
+            .footer-cozy { flex-direction: column; text-align: center; }
         }
     </style>
 </head>
 <body>
-    <div class="success-container">
-        <div class="success-header">
-            <div class="success-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <h1 class="success-title">Installation Complete!</h1>
-            <p class="success-subtitle">
-                Machinjiri has been successfully installed and configured. 
-                You're now ready to start building amazing applications.
-            </p>
-            
+<div class="cozy-container">
+    <div class="welcome-header">
+        <div class="cozy-badge">
+            <i class="fas fa-mug-hot"></i> <span>fresh install · ready to create</span> <i class="fas fa-heart" style="color: #E68A5E;"></i>
         </div>
-        
-        <div class="success-content">
-            <div class="installation-details">
-                <div class="detail-card">
-                    <div class="detail-header">
-                        <i class="fas fa-code"></i>
-                        <h3>Application Details</h3>
-                    </div>
-                    <div class="detail-content">
-                        <p><strong>Name:</strong> $appName; </p>
-                        <p><strong>Version:</strong> $version</p>
-                        <p><strong>Release:</strong> Stable (LTS)</p>
-                        <p><strong>Date:</strong> $date</p>
-                        <div class="status-badge">
-                            <i class="fas fa-check"></i> Verified & Authenticated
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="detail-card">
-                    <div class="detail-header">
-                        <i class="fas fa-cogs"></i>
-                        <h3>Components Installed</h3>
-                    </div>
-                    <div class="detail-content">
-                        <ul>
-                            <li>Core Framework</li>
-                            <li>Database ORM</li>
-                            <li>Authentication System</li>
-                            <li>API Toolkit</li>
-                            <li>CLI Tools</li>
-                            <li>Development Server</li>
-                            <li>Testing Suite</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="next-steps">
-                <h2>Next Steps</h2>
-                <div class="steps-container">
-                    
-                    <div class="step">
-                        <div class="step-number">1</div>
-                        <div class="step-content">
-                            <h3>Explore Examples</h3>
-                            <p>Check out sample projects and tutorials in the documentation to learn faster. The examples cover common use cases:</p>
-                            <a href="$docsUrl" style="color: var(--primary); font-weight: 600;">View Examples →</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="footer-note">
-                <p>
-                    <i class="fas fa-info-circle"></i> 
-                    Having issues? Visit our <a href="$docsUrl" style="color: var(--primary); font-weight: 600;">troubleshooting guide</a> or 
-                    <a href="$docsForumUrl" style="color: var(--primary); font-weight: 600;">community forums</a> for help.
-                </p>
-                <p style="margin-top: 10px;">
-                    Machinjiri $version •  
-                    <i class="fas fa-heart" style="color: #e74c3c;"></i> Thank you for choosing Machinjiri
-                </p><a href="$docsUrl" target="_blank" class="action-btn secondary">
-                            Open Docs
-                        </a>
-            </div>
+        <h1>
+            <i class="fas fa-feather-alt"></i> 
+            You're all set!
+        </h1>
+        <div class="tagline">Machinjiri is installed — cozy, fast, and waiting for your ideas.
         </div>
     </div>
+
+    <!-- main content grid: system details + components -->
+    <div class="grid-2cols">
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1.2rem;">
+                <i class="fas fa-rocket" style="font-size: 1.8rem; color: #E68A5E;"></i>
+                <h2 style="font-size: 1.5rem; font-weight: 600;">App snapshot</h2>
+            </div>
+            <div>
+                <p><strong>Name:</strong> Machinjiri • <span style="background:#F7EFE7; padding:2px 8px; border-radius:20px;">$appName</span></p>
+                <p><strong>Release:</strong> $version <i class="fas fa-check-circle" style="color:#7AA77B;"></i></p>
+                <p><strong>Born on:</strong> 2026-05-18 <i class="fas fa-calendar-alt" style="color:#B58E6B;"></i></p>
+                <div class="status-chip">
+                    <i class="fas fa-shield-alt"></i> Verified & cozy-ready
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+                <i class="fas fa-puzzle-piece" style="font-size: 1.6rem; color: #E68A5E;"></i>
+                <h2 style="font-size: 1.5rem; font-weight: 600;">Components installed</h2>
+            </div>
+            <ul class="detail-list">
+                <li><i class="fas fa-cubes"></i> Core Framework + CLI</li>
+                <li><i class="fas fa-database"></i> Database ORM (Eloquent-like)</li>
+                <li><i class="fas fa-id-card"></i> Auth & Session system</li>
+                <li><i class="fas fa-cloud-sun"></i> API Toolkit & Middleware</li>
+                <li><i class="fas fa-vial"></i> Testing Suite ready</li>
+                <li><i class="fas fa-laptop-code"></i> Dev server + hot reload</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Quick actions - catchy & cozy -->
+    <div class="action-grid">
+        <div class="action-item">
+            <div class="action-icon"><i class="fas fa-book-open"></i></div>
+            <h3>Read the docs</h3>
+            <p>Cozy tutorials, API references, and best practices.</p>
+            <a href="https://github.com/preciouslyson/machinjiri" target="_blank" class="cozy-btn outline">Explore docs →</a>
+        </div>
+        <div class="action-item">
+            <div class="action-icon"><i class="fas fa-terminal"></i></div>
+            <h3>CLI power</h3>
+            <p>Generate models, controllers, and migrations.</p>
+            <a href="https://github.com/preciouslyson/machinjiri#Console" class="cozy-btn outline">php artisan list</a>
+        </div>
+        <div class="action-item">
+            <div class="action-icon"><i class="fas fa-users"></i></div>
+            <h3>Community</h3>
+            <p>Join discord, share your cozy creations.</p>
+            <a href="#" class="cozy-btn outline">Join the hub →</a>
+        </div>
+        <div class="action-item">
+            <div class="action-icon"><i class="fas fa-mug-saucer"></i></div>
+            <h3>First app</h3>
+            <p>Build a "Hello, cozy world" in 2 minutes.</p>
+            <a href="#" class="cozy-btn outline">Start building</a>
+        </div>
+    </div>
+
+    <!-- Next steps - cozy roadmap -->
+    <div class="steps-wrapper">
+        <div class="steps-title">
+            <i class="fas fa-map-signs"></i> your next cozy steps
+        </div>
+        <div class="steps-container">
+            <div class="step-row">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Run the dev server</h4>
+                    <p>In your project root, type <code>php artisan server:start</code> and visit <code>http://localhost:3000</code></p>
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Create your first route</h4>
+                    <p>Open <code>routes/web.php</code> and add: <code>Route::get('/welcome', 'HomeController@index', 'welcome');</code></p>
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Explore the starter kit</h4>
+                    <p>Check <code>/resources/views</code> and customize your cozy layout.</p>
+                </div>
+            </div>
+            <div class="step-row">
+                <div class="step-number">4</div>
+                <div class="step-content">
+                    <h4>Configure .env</h4>
+                    <p>Set database, app URL and enjoy full framework magic.</p>
+                </div>
+            </div>
+        </div>
+        <div style="margin-top: 1.5rem; text-align: center;">
+            <a href="https://github.com/preciouslyson/machinjiri#Introduction" class="cozy-btn"><i class="fas fa-graduation-cap"></i> full getting started guide</a>
+        </div>
+    </div>
+
+    <!-- footer cozy love -->
+    <div class="footer-cozy">
+        <div>
+            <i class="fas fa-heart" style="color: #E68A5E;"></i> Machinjiri — where code meets comfort
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/preciouslyson/machinjiri"><i class="fab fa-github"></i> GitHub</a>
+            <a href="https://github.com/preciouslyson/machinjiri/support"><i class="fas fa-life-ring"></i> Support</a>
+            <a href="https://github.com/preciouslyson/machinjiri/feedback"><i class="fas fa-comment-dots"></i> Feedback</a>
+        </div>
+        <div>
+            &copy; 2024 - $date
+        </div>
+    </div>
+</div>
 </body>
 </html>
 HTML;
@@ -1151,15 +1096,9 @@ GIT;
 #!/usr/bin/env php
 <?php
 require __DIR__ . '/vendor/autoload.php';
-
 use Mlangeni\Machinjiri\Core\Artisans\Terminal\Terminal;
-
-/*
- * Artisan Command Line Interface
- */
-
-$application = new Terminal();
-$application->run();
+// init Machinjiri artisan console
+(new Terminal())->run();
 PHP;
     }
 
@@ -1193,12 +1132,88 @@ HT;
 
     private function phpunitTemplate(): string { return <<<XML
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit colors="true" bootstrap="vendor/autoload.php">
-  <testsuites>
-    <testsuite name="Unit Tests">
-      <directory>tests/Unit</directory>
-    </testsuite>
-  </testsuites>
+<phpunit 
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+    bootstrap="tests/bootstrap.php"
+    colors="true"
+    cacheResult="true"
+    executionOrder="random"
+    stopOnFailure="false"
+    processIsolation="false"
+    >
+
+    <php>
+        <!-- Testing environment -->
+        <env name="APP_ENV" value="testing"/>
+        <env name="CODETEST_ENABLED" value="true"/>
+        
+        <!-- Database: use in-memory SQLite for speed -->
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        
+        <!-- Cache & Queue: use array driver -->
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        
+        <!-- Mail: log to array (no real sending) -->
+        <env name="MAIL_MAILER" value="array"/>
+        
+        <!-- Session: array driver for tests -->
+        <env name="SESSION_DRIVER" value="array"/>
+        
+        <!-- Encryption key (must be 32 chars base64) -->
+        <env name="APP_KEY" value="base64:abcdefghijklmnopqrstuvwxyz1234567890="/>
+        
+        <!-- JWT secret -->
+        <env name="JWT_SECRET" value="test-jwt-secret-key-32-chars-long-here!"/>
+        
+        <!-- Coverage threshold -->
+        <env name="COVERAGE_MINIMUM" value="80"/>
+    </php>
+
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Features</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+        <testsuite name="Browser">
+            <directory>tests/Browser</directory>
+        </testsuite>
+    </testsuites>
+
+    <coverage cacheDirectory="build/cache">
+        <include>
+            <directory suffix=".php">src</directory>
+        </include>
+        <exclude>
+            <directory>src/Console</directory>
+            <directory>src/Testing</directory>
+            <directory>src/Artisans/Terminal</directory>
+            <directory>src/Exceptions</directory>
+            <directory>vendor</directory>
+            <directory>tests</directory>
+        </exclude>
+        <report>
+            <html outputDirectory="build/coverage" lowUpperBound="35" highLowerBound="70"/>
+            <clover outputFile="build/logs/clover.xml"/>
+            <text outputFile="build/logs/coverage.txt" showUncoveredFiles="true"/>
+        </report>
+    </coverage>
+
+    <logging>
+        <junit outputFile="build/logs/junit.xml"/>
+    </logging>
+
+    <extensions>
+        <!-- Paratest for parallel execution -->
+        <extension class="ParaTest\WrapperRunner\WrapperRunner"/>
+    </extensions>
 </phpunit>
 XML;
     }
@@ -1387,7 +1402,6 @@ return [
     'providers' => [
         \Mlangeni\Machinjiri\App\Providers\AppServiceProvider::class,
         \Mlangeni\Machinjiri\App\Providers\DatabaseServiceProvider::class,
-        \Mlangeni\Machinjiri\App\Providers\ViteServiceProvider::class,
     ],
     
     /**
@@ -1397,7 +1411,6 @@ return [
     'deffered' => [
         
     ],
-
 ];
 PHP;
     }
@@ -1434,7 +1447,7 @@ return [
     | services the application utilizes. Set this in your ".env" file.
     |
     */
-    'env' => env('APP_ENV', 'production'),
+    'env' => env('APP_ENV', 'development'),
 
     /*
     |--------------------------------------------------------------------------
@@ -1729,7 +1742,7 @@ return [
 PHP;
   }
   
-  private function helpersFileTemplate () {return <<<'PHP'
+  private function helpersFileTemplate () {<<<'PHP'
 <?php
 /**
  * Global Helper Functions for Machinjiri Framework
@@ -1744,6 +1757,8 @@ use Mlangeni\Machinjiri\Core\Date\DateTimeHandler;
 use Mlangeni\Machinjiri\Core\Debug\Dumper;
 use Mlangeni\Machinjiri\Integrations\Vite\Vite;
 use Mlangeni\Machinjiri\Core\Debug\Debugger;
+use Mlangeni\Machinjiri\Core\Views\View;
+use Mlangeni\Machinjiri\Core\Routing\Router;
 
 if (!function_exists('app')) {
     /**
@@ -2360,119 +2375,416 @@ if (!function_exists('measure')) {
         return debugger()->measure($callback, $label);
     }
 }
-PHP;
-  }
-  private function viteServiceProviderTemplate () {return <<<'PHP'
-<?php
-
-namespace Mlangeni\Machinjiri\App\Providers;
-
-use Mlangeni\Machinjiri\Core\Container;
-use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
-use Mlangeni\Machinjiri\Core\Views\View;
-
-/**
- * Vite Service Provider
- *
- * Registers Vite integration into the container and extends the view system.
- */
-class ViteServiceProvider extends ServiceProvider
-{
+if (!function_exists('view')) {
     /**
-     * Register the Vite service.
+     * Render a view and return its content.
+     *
+     * @param string $view
+     * @param array $data
+     * @return string
      */
-    public function register(): void
+    function view(string $view, array $data = []): void
     {
-        $this->app->singleton(Vite::class, function (Container $app) {
-            return new Vite($app);
-        });
-
-        $this->app->alias(Vite::class, 'vite');
-
-        // Merge default configuration
-        $this->mergeConfigFrom(__DIR__ . '/../config/vite.php', 'vite');
-    }
-
-    /**
-     * Boot the Vite service.
-     */
-    public function boot(): void
-    {
-        // Register view custom tags for Vite
-        $this->registerViewTags();
-    }
-
-    /**
-     * Register custom view tags for Vite integration.
-     */
-    protected function registerViewTags(): void
-    {
-        // Extend the View's custom tag processor via a static callback.
-        // Since the View class processes tags with regex, we can hook into
-        // the existing system by adding our own pattern replacement.
-
-        // We'll provide a static method that can be called from views.
-        // The user can use: <% vite('resources/js/app.js', 'resources/css/app.css') %>
-
-        // Register a global helper for view processing
-        if (!method_exists(View::class, 'vite')) {
-            // Add a magic static method that can be called from processed templates
-            // Alternatively, we can pre-process the content to replace <% vite(...) %>
-            // For simplicity, we'll use the existing <% include %> style and provide
-            // a directive via a custom tag processor.
-        }
-
-        // Since the framework's View uses custom tags like <% include %>, we can
-        // add a new tag <% vite(...) %>. We'll extend the View class with a static
-        // method and document its usage.
-    }
-
-    /**
-     * Merge configuration from file.
-     */
-    protected function mergeConfigFrom(string $path, string $key): void
-    {
-        if (file_exists($path)) {
-            $config = require $path;
-            $this->app->configurations[$key] = array_merge(
-                $this->app->configurations[$key] ?? [],
-                $config
-            );
-        }
+        View::make($view, $data)->display();
     }
 }
-PHP;
-  }
-  
-  private function viteConfigTemplate () { return <<<'PHP'
-<?php
 
-return [
-    /*
-    |--------------------------------------------------------------------------
-    | Vite Development Server URL
-    |--------------------------------------------------------------------------
-    */
-    'dev_server_url' => env('VITE_DEV_SERVER_URL', 'http://localhost:5173'),
+if (!function_exists('display_view')) {
+    /**
+     * Render and directly output a view.
+     *
+     * @param string $view
+     * @param array $data
+     */
+    function display_view(string $view, array $data = []): void
+    {
+        View::make($view, $data)->display();
+    }
+}
 
-    /*
-    |--------------------------------------------------------------------------
-    | Build Directory
-    |--------------------------------------------------------------------------
-    |
-    | The directory where Vite outputs built assets, relative to public path.
-    */
-    'build_directory' => env('VITE_BUILD_DIR', 'build'),
+if (!function_exists('asset')) {
+    /**
+     * Generate a versioned asset URL.
+     *
+     * @param string $path
+     * @return string
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function asset(string $path): string
+    {
+        return View::asset($path);
+    }
+}
 
-    /*
-    |--------------------------------------------------------------------------
-    | Manifest Path
-    |--------------------------------------------------------------------------
-    |
-    | Path to the manifest.json file relative to public path.
-    */
-    'manifest_path' => env('VITE_MANIFEST', 'build/manifest.json'),
-];
+if (!function_exists('style')) {
+    /**
+     * Generate a <link> tag for a CSS asset.
+     *
+     * @param string $path
+     * @param array $attributes
+     * @return string
+     */
+    function style(string $path, array $attributes = []): string
+    {
+        return View::style($path, $attributes);
+    }
+}
+
+if (!function_exists('script')) {
+    /**
+     * Generate a <script> tag for a JavaScript asset.
+     *
+     * @param string $path
+     * @param array $attributes
+     * @return string
+     */
+    function script(string $path, array $attributes = []): string
+    {
+        return View::script($path, $attributes);
+    }
+}
+
+if (!function_exists('load_resource')) {
+    /**
+     * Legacy resource loader (loads all CSS/JS files recursively or a single file).
+     *
+     * @param string $type 'css' or 'js'
+     * @param string $path Optional specific file path
+     * @return string
+     */
+    function load_resource(string $type, string $path = ""): string
+    {
+        return View::loadResource($type, $path);
+    }
+}
+
+if (!function_exists('share')) {
+    /**
+     * Share data across all views.
+     *
+     * @param string|array $key
+     * @param mixed|null $value
+     */
+    function share($key, $value = null): void
+    {
+        View::share($key, $value);
+    }
+}
+
+// ---- Template tag helpers (for use inside view files) ----
+
+if (!function_exists('section')) {
+    /**
+     * Start or set a named section.
+     *
+     * @param string $name
+     * @param string|null $content
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function section(string $name, ?string $content = null): void
+    {
+        View::section($name, $content);
+    }
+}
+
+if (!function_exists('endSection')) {
+    /**
+     * End the currently open section.
+     *
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function endSection(): void
+    {
+        View::endSection();
+    }
+}
+
+if (!function_exists('view_yield')) {
+    /**
+     * Output the content of a section.
+     *
+     * @param string $name
+     */
+    function view_yield(string $name): void
+    {
+        View::yield($name);
+    }
+}
+
+if (!function_exists('extend')) {
+    /**
+     * Specify a layout to extend.
+     *
+     * @param string $layout
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function extend(string $layout): void
+    {
+        View::extend($layout);
+    }
+}
+
+if (!function_exists('include_view')) {
+    /**
+     * Include a partial view (shortcut for View::include).
+     *
+     * @param string $view
+     * @param array $data
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function include_view(string $view, array $data = []): void
+    {
+        View::include($view, $data);
+    }
+}
+
+if (!function_exists('hasSection')) {
+    /**
+     * Check if a section exists.
+     *
+     * @param string $name
+     * @return bool
+     */
+    function hasSection(string $name): bool
+    {
+        return View::hasSection($name);
+    }
+}
+
+if (!function_exists('getSection')) {
+    /**
+     * Get the content of a section (without outputting).
+     *
+     * @param string $name
+     * @return string
+     */
+    function getSection(string $name): string
+    {
+        return View::getSection($name);
+    }
+}
+
+if (!function_exists('parent')) {
+    /**
+     * Output the parent section content (when using inheritance).
+     *
+     * @param string $name
+     */
+    function parent(string $name): void
+    {
+        View::parent($name);
+    }
+}
+// Router API Functions
+if (!function_exists('route_get')) {
+    /**
+     * Register a GET route.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_get(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::get($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_post')) {
+    /**
+     * Register a POST route.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_post(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::post($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_put')) {
+    /**
+     * Register a PUT route.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_put(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::put($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_delete')) {
+    /**
+     * Register a DELETE route.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_delete(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::delete($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_any')) {
+    /**
+     * Register a route that responds to any HTTP method.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_any(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::any($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_ajax')) {
+    /**
+     * Register an AJAX-only route (responds only to XMLHttpRequest).
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_ajax(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::ajax($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_traditional')) {
+    /**
+     * Register a traditional (non-AJAX) route.
+     *
+     * @param string $pattern
+     * @param mixed $handler
+     * @param string|null $name
+     * @param array $options
+     * @return Router
+     */
+    function route_traditional(string $pattern, mixed $handler, ?string $name = null, array $options = []): Router
+    {
+        return Router::traditional($pattern, $handler, $name, $options);
+    }
+}
+
+if (!function_exists('route_group')) {
+    /**
+     * Create a route group with shared attributes (prefix, middleware, etc.).
+     *
+     * @param array $attributes
+     * @param callable $callback
+     * @return Router
+     */
+    function route_group(array $attributes, callable $callback): Router
+    {
+        return Router::group($attributes, $callback);
+    }
+}
+
+if (!function_exists('route_middleware')) {
+    /**
+     * Apply middleware to a route or group.
+     *
+     * @param mixed $middleware
+     * @param callable|null $callback
+     * @return Router
+     */
+    function route_middleware(mixed $middleware, ?callable $callback = null): Router
+    {
+        return Router::middleware($middleware, $callback);
+    }
+}
+
+if (!function_exists('route_cors')) {
+    /**
+     * Apply CORS configuration to a route or group.
+     *
+     * @param array $config
+     * @param callable|null $callback
+     * @return Router
+     */
+    function route_cors(array $config = [], ?callable $callback = null): Router
+    {
+        if ($callback !== null) {
+            return Router::cors($config, $callback);
+        }
+        return Router::cors($config);
+    }
+}
+
+if (!function_exists('base_url')) {
+    /**
+     * Get the base URL of the application (protocol + host + base path).
+     *
+     * @return string
+     */
+    function base_url(): string
+    {
+        return Router::baseUrl();
+    }
+}
+
+if (!function_exists('route_url')) {
+    /**
+     * Generate a URL for a named route.
+     *
+     * @param string $name
+     * @param array $params
+     * @return string
+     * @throws \Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException
+     */
+    function route_url(string $name, array $params = []): string
+    {
+        return Router::route($name, $params);
+    }
+}
+
+if (!function_exists('route_absolute')) {
+    /**
+     * Generate an absolute URL (including protocol and host) for a named route.
+     *
+     * @param string $name
+     * @param array $params
+     * @return string
+     */
+    function route_absolute(string $name, array $params = []): string
+    {
+        return Router::absoluteRoute($name, $params);
+    }
+}
+
+if (!function_exists('dispatch_routes')) {
+    /**
+     * Dispatch the current request to the matching route.
+     *
+     * @return void
+     */
+    function dispatch_routes(): void
+    {
+        Router::dispatch();
+    }
+}
 PHP;
   }
 }
