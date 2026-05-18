@@ -27,13 +27,10 @@ if (file_exists(__DIR__.'/../../../autoload.php')) {
 
 use Symfony\Component\Console\Application;
 use Preciouslyson\MachinjiriInstaller\Commands\InstallCommand;
-
-$application = new Application('Machinjiri Installer', '1.1.0');
-$application->add(new InstallCommand());
-
-$application->run();
+$terminal = new Application('Machinjiri Installer', '1.2.0');
+$terminal->add(new InstallCommand());
+$terminal->run();
 PHP;
-
         file_put_contents($binDir . '/machinjiri', $cliContent);
         chmod($binDir . '/machinjiri', 0755);
     }
