@@ -18,16 +18,14 @@ class ComposerScripts
         $cliContent = <<<'PHP'
 #!/usr/bin/env php
 <?php
-
 if (file_exists(__DIR__.'/../../../autoload.php')) {
     require __DIR__.'/../../../autoload.php';
 } else {
     require __DIR__.'/../vendor/autoload.php';
 }
-
 use Symfony\Component\Console\Application;
 use Preciouslyson\MachinjiriInstaller\Commands\InstallCommand;
-$terminal = new Application('Machinjiri Installer', '1.2.0');
+$terminal = new Application('Machinjiri Installer', '1.2.1');
 $terminal->add(new InstallCommand());
 $terminal->run();
 PHP;
