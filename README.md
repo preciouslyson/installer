@@ -19,7 +19,7 @@ Add to your existing project's composer.json:
 ```json
 {
     "require-dev": {
-        "preciouslyson/installer": "^1.0.0"
+        "preciouslyson/installer": "^1.2.1"
     }
 }
 ```
@@ -35,18 +35,16 @@ Quick Start
 After global installation, create a new Machinjiri project:
 
 ```bash
-machinjiri new myapp
+machinjiri create
 ```
 
 Available Commands
 
-machinjiri new
+machinjiri create
 
 Create a new Machinjiri application.
 
 ```bash
-Usage:
-  new [options] [--] [<name>]
 
 Arguments:
   name                           Name of the project directory
@@ -72,42 +70,7 @@ Basic Installation
 
 ```bash
 # Create app in default directory (machinjiri-app/)
-machinjiri new
-
-# Create app with custom name
-machinjiri new my-awesome-app
-
-# Create app with specific version
-machinjiri new blog --version="^1.2"
-
-# Force overwrite existing directory
-machinjiri new api --force
-```
-
-Development Setup
-
-```bash
-# Create with development dependencies
-machinjiri new project --dev
-
-# Create without development dependencies (production)
-machinjiri new project --no-dev
-
-# Non-interactive mode for CI/CD
-machinjiri new app --no-interaction --force
-```
-
-Advanced Usage
-
-```bash
-# Specify version and force overwrite
-machinjiri:install ecommerce --version="^1.3" --force
-
-# Skip Composer scripts
-machinjiri:install microservice --no-scripts
-
-# Verbose output for debugging
-machinjiri:install api -vvv
+machinjiri create
 ```
 
 Project Structure Created
@@ -117,44 +80,51 @@ The installer creates a complete Machinjiri application structure:
 ```
 your-project/
 ├── app/
-│   ├── Controllers/
-│   ├── Middleware/
-│   ├── Models/
-│   └── Providers/
+│   ├── Controllers/          # Application controllers
+│   ├── Jobs/                 # Application Jobs
+│   ├── Middleware/           # Custom middleware classes
+│   ├── Queue/                # Queue Drivers
+│   │     └── Drivers/        # Driver Files (Database, Sync, Redis)
+│   ├── Models/               # Data models
+│   ├── Providers/            # Service providers
+│   └── Exceptions/           # Custom exceptions
 ├── bootstrap/
-│   ├── app.php
-│   └── helpers.php
+│   ├── app.php/              # Application bootstrap file
+│   └── helpers.php           # Helper functions (API)
 ├── config/
-│   ├── app.php
-│   ├── providers.php
-│   ├── appserviceprovider.php
-│   └── databaseserviceprovider.php
+│   ├── app.php               # Application configuration
+│   ├── database.php          # Database configuration
+│   ├── mail.php              # Mail service configuration
+│   ├── auth.php              # Authentication configuration
+│   └── providers.php         # Service providers list
 ├── database/
-│   ├── seeders/
-│   └── factories/
-├── public/
-│   ├── index.php
-│   └── .htaccess
+│   ├── migrations/           # Database migration files
+│   ├── seeders/              # Database seeder classes
+│   └── factories/            # Model factory classes
 ├── resources/
-│   └── views/
-│       ├── layouts/
-│       ├── partials/
-│       └── welcome.mg.php
+│   └── views/                # View templates
+│       ├── layouts/          # Layout templates
+│       ├── partials/         # Reusable view fragments
+│       └── pages/            # Page-specific views
 ├── routes/
-│   └── web.php
+│   └── web.php               # Web application routes
 ├── storage/
-│   ├── session/
-│   ├── cache/
-│   └── logs/
-├── tests/
-│   └── Unit/
-├── .env
-├── .gitignore
-├── .htaccess
-├── artisan
-├── composer.json
-├── phpunit.xml
-└── README.md
+│   ├── cache/                # Cached data files
+│   ├── cookies/              # Cookie storage
+│   ├── logs/                 # Application logs
+│   └── sessions/             # Session files
+├── public/
+│   ├── src/
+│   │   ├── css/              # Stylesheets
+│   │   ├── js/               # JavaScript files
+│   │   └── images/           # Image assets
+│   ├── .htaccess             # .htaccess config file
+│   └── index.php             # Application entry point
+├── vendor/                   # Composer dependencies
+├── .env                      # Environment configuration
+├── artisan                   # Console application
+├── composer.json             # Project dependencies
+└── phpunit.xml               # PHPUnit configuration
 ```
 
 Key Features
@@ -197,21 +167,22 @@ Environment Configuration
 The installer generates a .env file with sensible defaults:
 
 ```env
-APP_NAME="Machinjiri App"
+# -------------------------------------------------
+#   Application configurations                    |
+# -------------------------------------------------
+APP_NAME="MachinjiriApp"
 APP_ENV=local
-APP_KEY=[auto-generated-32-byte-key]
 APP_DEBUG=true
-APP_URL=http://localhost
+APP_URL=http://localhost:3000
+APP_KEY=
+APP_CIPHER=aes-256-gcm
 
-LOG_CHANNEL=stack
-LOG_LEVEL=debug
-
+# ------------------------------------------------
+# Database Configuration (Sqlite)                |
+# ------------------------------------------------
 DB_CONNECTION=sqlite
 DB_DATABASE=database/database.sqlite
-
-CACHE_DRIVER=file
-SESSION_DRIVER=file
-QUEUE_CONNECTION=sync
+DB_FOREIGN_KEYS=true
 ```
 
 Post-Installation Steps
@@ -227,7 +198,7 @@ After successful installation:
    php artisan server:start
    ```
 3. Visit the welcome page:
-   Open http://localhost:8000 in your browser
+   Open http://localhost:3000 in your browser
 4. Set up database:
    ```bash
    # For SQLite (default)
@@ -246,7 +217,7 @@ Once your project is created:
 
 ```bash
 # Start development server
-php artisan serve
+php artisan server:start
 
 # Run tests
 php vendor/bin/phpunit
@@ -260,8 +231,6 @@ php artisan make:model User -m
 # Run database migrations
 php artisan migrate
 
-# Generate app key (if needed)
-php artisan key:generate
 ```
 
 Troubleshooting

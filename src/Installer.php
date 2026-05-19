@@ -100,12 +100,7 @@ class Installer
                         "Directory {$this->projectDir} already exists. Use --force to overwrite."
                     );
                 }
-                
-                if (!$this->io->confirm("Directory '{$this->projectDir}' already exists. Overwrite?", false)) {
-                    throw new \RuntimeException('Installation cancelled.');
-                }
             }
-            
             $this->removeDirectory($this->projectDir);
         }
 
@@ -246,7 +241,9 @@ class Installer
     private function writeEnvironmentFile(): void
     {
         $envContent = <<<ENV
-# Application Configuration
+# -------------------------------------------------
+#   Application configurations                    |
+# -------------------------------------------------
 APP_NAME="MachinjiriApp"
 APP_ENV=local
 APP_DEBUG=true
@@ -254,33 +251,47 @@ APP_URL=http://localhost:3000
 APP_KEY=
 APP_CIPHER=aes-256-gcm
 
-# Database Configuration
-DB_CONNECTION=sqlite # or mysql
+# ------------------------------------------------
+# Database Configuration (Sqlite)                |
+# ------------------------------------------------
+DB_CONNECTION=sqlite
 DB_DATABASE=database/database.sqlite
 DB_FOREIGN_KEYS=true
 
-# For Mysql Databases
-#DB_HOST=host-server
-#DB_USERNAME=your-username
-#DB_PASSWORD=your-password
-#DB_DATABASE=database-name
+# ------------------------------------------------
+# Database Configuration (MYSQL)                 |
+# ------------------------------------------------
+# DB_CONNECTION=mysql
+# DB_HOST=host-server
+# DB_USERNAME=your-username
+# DB_PASSWORD=your-password
+# DB_DATABASE=database-name
+# DB_PORT=3306
 
-# Cache Configuration
+# -------------------------------------------------
+# Cache Configuration                             |
+# -------------------------------------------------
 CACHE_DRIVER=file
 CACHE_PREFIX=machinjiri_cache
 
-# Session Configuration
+# -------------------------------------------------
+# Session Configuration (MYSQL)                   |
+# -------------------------------------------------
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
 SESSION_COOKIE=machinjiri_session
 SESSION_DOMAIN=null
 SESSION_SECURE_COOKIE=false
 
-# Queue Configuration
+# ------------------------------------------------
+# Queue Configuration                            |
+# ------------------------------------------------
 QUEUE_CONNECTION=sync
 QUEUE_FAILED_DRIVER=database
 
-# Mail Configuration
+# ------------------------------------------------
+# Mailer Configuration                           |
+# ------------------------------------------------
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.mailtrap.io
 MAIL_PORT=2525
@@ -290,17 +301,25 @@ MAIL_PASSWORD=
 MAIL_FROM_ADDRESS=hello@example.com
 MAIL_FROM_NAME=Example
 
-# Logging Configuration
+# -------------------------------------------------
+# Logging Configuration                           |
+# -------------------------------------------------
 LOG_CHANNEL=stack
 LOG_LEVEL=debug
 
-# Asset Configuration
+# ------------------------------------------------
+# Asset Configuration                            |
+# ------------------------------------------------
 ASSET_URL=null
 
-# View Configuration
+# -------------------------------------------------
+# View Configuration                              |
+# -------------------------------------------------
 VIEW_COMPILED_PATH=storage/framework/views
 
-# JWT
+# ------------------------------------------------
+# Bangwe Encryption Configuration                |
+# ------------------------------------------------
 JWT_SECRET=your-super-secret-jwt-key-here
 JWT_ALGO=HS256
 JWT_EXPIRATION=3600
@@ -1083,7 +1102,7 @@ HTML;
     private function gitIgnoreTemplate(): string { return <<<GIT
 /vendor/
 /node_modules/
-.env
+/.env
 /storage/*
 !important/storage/.gitignore
 /.idea
@@ -1742,7 +1761,7 @@ return [
 PHP;
   }
   
-  private function helpersFileTemplate () {<<<'PHP'
+  private function helpersFileTemplate () {return <<<'PHP'
 <?php
 /**
  * Global Helper Functions for Machinjiri Framework

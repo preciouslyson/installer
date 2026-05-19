@@ -115,7 +115,7 @@ class InstallationSummary
         $this->io->writeln("   <fg=yellow>cd {$this->projectName}</>");
 
         $this->io->newLine();
-        $this->io->writeln('2. Start the development server:');
+        $this->io->writeln('2. Start the development server (if not already started:');
         $this->io->writeln('   <fg=yellow>php artisan server:start</>');
 
         $this->io->newLine();
@@ -174,9 +174,7 @@ class InstallationSummary
         $this->io->section('Helpful Resources');
 
         $resources = [
-            'Documentation' => 'https://machinjiri.dev/docs',
-            'GitHub Repository' => 'https://github.com/machinjiri/framework',
-            'Community Forum' => 'https://forum.machinjiri.dev',
+            'Documentation' => 'https://github.com/preciouslyson/machinjiri#Introduction',
         ];
 
         foreach ($resources as $name => $url) {

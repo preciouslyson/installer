@@ -15,46 +15,151 @@ use Preciouslyson\MachinjiriInstaller\InstallationSummary;
 
 class InstallCommand extends Command
 {
-    protected static $defaultName = 'new';
+    protected static $defaultName = 'create';
     protected static $defaultDescription = 'Create a new Machinjiri application';
+
+    private bool $bannerDisplayed = false;
 
     public function __construct()
     {
         parent::__construct(self::$defaultName);
         $this->setDescription(self::$defaultDescription);
+        $this->setAliases(['new']);
     }
 
     protected function configure(): void
     {
         $this
-            ->setName(self::$defaultName)
-            ->setDescription(self::$defaultDescription)
-            ->addArgument('name', InputArgument::OPTIONAL, 'Name of the project directory', 'machinjiri-app')
+            ->addArgument('name', InputArgument::OPTIONAL, 'Name of the project directory')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force installation even if the directory already exists')
-            ->addOption('m-version', null, InputOption::VALUE_REQUIRED, 'Machinjiri version to install', '*')
+            ->addOption('m-version', null, InputOption::VALUE_REQUIRED, 'Machinjiri version to install')
             ->addOption('dev', null, InputOption::VALUE_NONE, 'Install development dependencies')
             ->addOption('no-dev', null, InputOption::VALUE_NONE, 'Skip development dependencies')
             ->addOption('no-scripts', null, InputOption::VALUE_NONE, 'Skip Composer scripts')
-            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Perform a dry-run without actually creating files');
+            ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Perform a dry-run without actually creating files')
+            ->addOption('no-interaction', 'n', InputOption::VALUE_NONE, 'Do not ask any interactive questions')
+            // New options
+            ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize Git repository and make initial commit')
+            ->addOption('starter', null, InputOption::VALUE_REQUIRED, 'Starter kit (default)')
+            ->addOption('prefer-cache', null, InputOption::VALUE_NONE, 'Use Composer cache if available')
+            ->addOption('keep-on-error', null, InputOption::VALUE_NONE, 'Do not delete partially created project on failure');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
-        
-        $projectName = $input->getArgument('name');
         $isDryRun = $input->getOption('dry-run');
         $isVerbose = $input->getOption('verbose');
-        
+        $noInteraction = $input->getOption('no-interaction');
+
+        $this->displayBanner($io);
+
+        if (!$this->checkEnvironment($io)) {
+            return Command::FAILURE;
+        }
+
+        $projectName = $input->getArgument('name');
+        if (!$projectName && !$noInteraction) {
+            $projectName = $io->ask('Project name', 'machinjiri-app', function ($value) {
+                if (empty(trim($value))) {
+                    throw new \RuntimeException('Project name cannot be empty.');
+                }
+                if (!preg_match('/^[a-zA-Z0-9._-]+$/', $value)) {
+                    throw new \RuntimeException('Project name may only contain letters, numbers, dots, underscores, and hyphens.');
+                }
+                return $value;
+            });
+        } elseif (!$projectName) {
+            $projectName = 'machinjiri-app';
+        }
+
+        $version = $input->getOption('m-version');
+        if (!$version && !$noInteraction) {
+            $version = $io->ask('Machinjiri version (leave empty for latest)', '*');
+            if (empty($version)) {
+                $version = '*';
+            }
+        } elseif (!$version) {
+            $version = '*';
+        }
+
+        // Dev/No-dev
+        $installDev = null;
+        if ($input->getOption('dev')) {
+            $installDev = true;
+        } elseif ($input->getOption('no-dev')) {
+            $installDev = false;
+        } elseif (!$noInteraction) {
+            $choice = $io->choice('Install development dependencies?', ['dev' => 'Yes (recommended for development)', 'no-dev' => 'No (production only)'], 'dev');
+            $installDev = ($choice === 'dev');
+        } else {
+            $installDev = true;
+        }
+
+        // Starter kit
+        $starter = $input->getOption('starter');
+        if (!$starter && !$noInteraction) {
+            $starter = $io->choice('Select a starter kit', ['default' => 'Default Kit',], 'default');
+        } elseif (!$starter) {
+            $starter = 'default';
+        }
+
+        // Git initialization
+        $initGit = $input->getOption('git');
+        if (!$initGit && !$noInteraction && !$isDryRun) {
+            $initGit = $io->confirm('Initialize a Git repository and make initial commit?', false);
+        }
+
+        // Prefer Composer cache
+        $preferCache = $input->getOption('prefer-cache');
+
+        $targetDir = getcwd() . DIRECTORY_SEPARATOR . $projectName;
+
+        // Handle existing directory
+        if (!$input->getOption('force') && !$isDryRun && is_dir($targetDir)) {
+            if (!$noInteraction) {
+                $overwrite = $io->confirm("Directory '$projectName' already exists. Overwrite?", false);
+                if (!$overwrite) {
+                    $io->error('Installation aborted by user.');
+                    return Command::FAILURE;
+                }
+                $input->setOption('force', true);
+            } else {
+                $io->error("Directory '$projectName' already exists. Use --force to overwrite.");
+                return Command::FAILURE;
+            }
+        }
+
+        // Installation summary
+        $io->section('Installation settings');
+        $io->listing([
+            "Project name: <info>{$projectName}</info>",
+            "Machinjiri version: <info>{$version}</info>",
+            "Development dependencies: <info>" . ($installDev ? 'Yes' : 'No') . "</info>",
+            "Starter kit: <info>{$starter}</info>",
+            "Git init: <info>" . ($initGit ? 'Yes' : 'No') . "</info>",
+            "Composer cache: <info>" . ($preferCache ? 'Prefer cache' : 'Default') . "</info>",
+            "Target directory: <info>{$targetDir}</info>",
+        ]);
+
+        if (!$noInteraction && !$isDryRun) {
+            if (!$io->confirm('Proceed with installation?', true)) {
+                return Command::SUCCESS;
+            }
+        }
+
+        // Prepare options for Installer
         $options = [
             'force' => $input->getOption('force'),
-            'version' => $input->getOption('m-version'),
-            'no-interaction' => $input->getOption('no-interaction'),
-            'dev' => $input->getOption('dev'),
-            'no-dev' => $input->getOption('no-dev'),
+            'version' => $version,
+            'no-interaction' => $noInteraction,
+            'dev' => $installDev,
+            'no-dev' => !$installDev,
             'no-scripts' => $input->getOption('no-scripts'),
             'dry-run' => $isDryRun,
             'verbose' => $isVerbose,
+            'starter' => $starter,
+            'prefer-cache' => $preferCache,
         ];
 
         try {
@@ -62,55 +167,197 @@ class InstallCommand extends Command
                 $io->warning('Running in DRY-RUN mode. No files will be created.');
                 $io->newLine();
             }
-            
-            $progressBar = new ProgressBar($output, 11); // 11 total steps
-            $progressBar->setFormat(' %current%/%max% [%bar%] %percent:3s%% %message%');
-            $progressBar->setMessage('Starting installation...');
-            $progressBar->start();
-            
+
+            $io->writeln("\n<comment>Installing Machinjiri...</comment>");
+            $spinner = $this->createSpinner($output);
+            $spinner->start();
+
             $installer = new Installer($io, $isVerbose);
             
-            $installer->setProgressCallback(function($step, $message) use ($progressBar) {
-                $progressBar->setMessage($message);
-                $progressBar->advance();
+            $installer->setProgressCallback(function ($step, $message) use ($spinner) {
+                $spinner->setMessage($message);
             });
-            
+
             $installer->install($projectName, $options);
 
-            $progressBar->finish();
-            
-            $output->writeln("\n");
-            
+            $spinner->finish();
+            $io->newLine(2);
+
             if ($isDryRun) {
                 $io->success("Dry-run completed successfully!");
                 $io->note("Run without --dry-run to create the project.");
-            } else {
-                $io->success("Machinjiri installed successfully!");
-                
-                // Display installation summary
-                $summary = new InstallationSummary(
-                    getcwd() . DIRECTORY_SEPARATOR . $projectName,
-                    $projectName,
-                    $io
-                );
-                $summary->displayComplete();
+                return Command::SUCCESS;
             }
-            
+
+            // Post-installation Git init
+            if ($initGit) {
+                $this->initializeGit($targetDir, $io);
+            }
+
+            // Post-installation wizard
+            $this->runPostInstallWizard($targetDir, $io, $noInteraction);
+
+            $io->success("Machinjiri installed successfully!");
+
+            $summary = new InstallationSummary($targetDir, $projectName, $io);
+            $summary->displayComplete();
+
             return Command::SUCCESS;
         } catch (\Exception $e) {
-            
-            if (isset($progressBar)) {
-                $progressBar->clear();
+            if (!$isDryRun && !$input->getOption('keep-on-error') && is_dir($targetDir)) {
+                $io->warning("Installation failed. Removing partially created directory...");
+                $this->removeDirectory($targetDir);
             }
             $io->error($e->getMessage());
-            
             if ($isVerbose) {
                 $io->note("Full stack trace:");
                 $io->writeln($e->getTraceAsString());
             }
-            
             return Command::FAILURE;
-            
         }
+    }
+
+    private function checkEnvironment(SymfonyStyle $io): bool
+    {
+        $io->section('Environment check');
+
+        // PHP version
+        if (version_compare(PHP_VERSION, '8.1.0', '<')) {
+            $io->error("Machinjiri requires PHP 8.1.0 or higher. You have " . PHP_VERSION);
+            return false;
+        }
+        $io->writeln("PHP version: <info>" . PHP_VERSION . "</info>");
+
+        // Required extensions
+        $required = ['json', 'mbstring', 'zip', 'openssl', 'pdo', 'tokenizer', 'ctype'];
+        $missing = [];
+        foreach ($required as $ext) {
+            if (!extension_loaded($ext)) {
+                $missing[] = $ext;
+            }
+        }
+        if (!empty($missing)) {
+            $io->error("Missing required PHP extensions: " . implode(', ', $missing));
+            return false;
+        }
+        $io->writeln("Required extensions: <info>all present</info>");
+
+        $process = new Process(['composer', '--version']);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            $io->error("Composer is not available. Please install Composer first.");
+            return false;
+        }
+        $io->writeln("Composer: <info>" . trim($process->getOutput()) . "</info>");
+
+        $io->newLine();
+        return true;
+    }
+
+    private function createSpinner(OutputInterface $output): ProgressBar
+    {
+        $spinner = new ProgressBar($output);
+        $spinner->setFormat(' %current% [%bar%] %message%');
+        $spinner->setBarCharacter('<fg=green>⚬</>');
+        $spinner->setEmptyBarCharacter(' ');
+        $spinner->setProgressCharacter('➤');
+        $spinner->setMessage('Starting...');
+        $spinner->start();
+        return $spinner;
+    }
+
+    private function initializeGit(string $targetDir, SymfonyStyle $io): void
+    {
+        $io->writeln("\n<comment>Initializing Git repository...</comment>");
+        $process = new Process(['git', 'init'], $targetDir);
+        $process->run();
+        if (!$process->isSuccessful()) {
+            $io->warning("Git init failed: " . $process->getErrorOutput());
+            return;
+        }
+        // Create initial .gitignore if not present
+        $gitignore = $targetDir . '/.gitignore';
+        if (!file_exists($gitignore)) {
+            file_put_contents($gitignore, "/vendor\n.env\n.DS_Store\n");
+        }
+        $process = new Process(['git', 'add', '.'], $targetDir);
+        $process->run();
+        $process = new Process(['git', 'commit', '-m', 'Initial commit from Machinjiri installer'], $targetDir);
+        $process->run();
+        $io->success("Git repository initialized with initial commit.");
+    }
+
+    private function runPostInstallWizard(string $targetDir, SymfonyStyle $io, bool $noInteraction): void
+    {
+        if ($noInteraction) {
+            return;
+        }
+    
+        $io->section('Post-installation setup');
+        $wantsSetup = $io->confirm('Would you like to perform some post-installation setup?', true);
+        if (!$wantsSetup) {
+            return;
+        }
+        if ($io->confirm('Run database migrations?', false)) {
+            $artisan = $targetDir . '/artisan';
+            if (file_exists($artisan)) {
+                $process = new Process(['php', $artisan, 'migration:migrate'], $targetDir);
+                $process->setTimeout(300);
+                $process->run(function ($type, $buffer) use ($io) {
+                    $io->write($buffer);
+                });
+                if ($process->isSuccessful()) {
+                    $io->success("Migrations completed.");
+                } else {
+                    $io->error("Migrations failed: " . $process->getErrorOutput());
+                }
+            } else {
+                $io->warning("Artisan not found. Skipping migrations.");
+            }
+        }
+    
+        if ($io->confirm('Start the built-in PHP development server now?', false)) {
+            $io->writeln("Starting server with <comment>php artisan server:start</comment>");
+            $io->writeln("Press Ctrl+C to stop the server.");
+            $process = new Process(['php', 'artisan', 'server:start'], $targetDir);
+            $process->setTty(true);
+            $process->run();
+        }
+    }
+
+    private function removeDirectory(string $dir): void
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        $files = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($files as $file) {
+            $file->isDir() ? rmdir($file->getRealPath()) : unlink($file->getRealPath());
+        }
+        rmdir($dir);
+    }
+
+    private function displayBanner($io): void
+    {
+        if ($this->bannerDisplayed) {
+            return;
+        }
+        $this->bannerDisplayed = true;
+        $bigM = <<<ASCII
+   ███╗   ███╗ █████╗  ██████╗██╗  ██╗██╗███╗   ██╗     ██╗██╗██████╗ 
+   ████╗ ████║██╔══██╗██╔════╝██║  ██║██║████╗  ██║     ██║██║██╔══██╗
+   ██╔████╔██║███████║██║     ███████║██║██╔██╗ ██║     ██║██║██████╔╝
+   ██║╚██╔╝██║██╔══██║██║     ██╔══██║██║██║╚██╗██║██   ██║██║██╔══██╗
+   ██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║██║██║ ╚████║╚█████╔╝██║██║  ██║
+   ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═╝  ╚═╝
+ASCII;
+        $io->writeln('');
+        $io->writeln('<fg=cyan;options=bold>' . $bigM . '</>');
+        $io->writeln('');
+        $io->writeln('     <fg=white>The Cozy PHP Framework — where code meets comfort</>');
+        $io->writeln('');
     }
 }
