@@ -292,14 +292,16 @@ QUEUE_FAILED_DRIVER=database
 # ------------------------------------------------
 # Mailer Configuration                           |
 # ------------------------------------------------
+MAIL_DRIVER=phpmailer
+MAIL_DEBUG=0
 MAIL_MAILER=smtp
 MAIL_HOST=smtp.mailtrap.io
 MAIL_PORT=2525
 MAIL_ENCRYPTION=tls
 MAIL_USERNAME=
 MAIL_PASSWORD=
-MAIL_FROM_ADDRESS=hello@example.com
-MAIL_FROM_NAME=Example
+MAIL_FROM_ADDRESS=your-email-address
+MAIL_FROM_NAME={APP_NAME}
 
 # -------------------------------------------------
 # Logging Configuration                           |
@@ -445,6 +447,7 @@ ENV;
         
         $write($this->projectDir . '/config/providers.php', $this->providersTemplate());
         $write($this->projectDir . '/config/app.php', $this->appConfigTemplate());
+        $write($this->projectDir . '/config/mail.php', $this->mailConfigTemplate());
         $write($this->projectDir . '/config/appserviceprovider.php', $this->AppServiceProviderFileTemplate());
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', $this->AppServiceProviderTemplate());
         $write($this->projectDir . '/config/databaseserviceprovider.php', $this->DatabaseServiceProviderFileTemplate());
@@ -2804,6 +2807,31 @@ if (!function_exists('dispatch_routes')) {
         Router::dispatch();
     }
 }
+PHP;
+  }
+  
+  private function mailConfigTemplate () { return <<<'PHP'
+<?php
+
+return [
+    'default' => env('MAIL_DRIVER', 'phpmailer'),
+
+    'transports' => [
+        'phpmailer' => [
+            'type' => 'phpmailer',
+            'options' => [
+                'host'       => env('MAIL_HOST', 'smtp.mailtrap.io'),
+                'port'       => env('MAIL_PORT', 2525),
+                'encryption' => env('MAIL_ENCRYPTION', 'tls'),
+                'username'   => env('MAIL_USERNAME'),
+                'password'   => env('MAIL_PASSWORD'),
+                'from_email' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+                'from_name'  => env('MAIL_FROM_NAME', 'Machinjiri App'),
+                'debug'      => env('MAIL_DEBUG'),
+            ],
+        ],
+    ],
+];
 PHP;
   }
 }
