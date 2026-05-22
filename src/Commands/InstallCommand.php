@@ -12,6 +12,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Preciouslyson\MachinjiriInstaller\Installer;
 use Preciouslyson\MachinjiriInstaller\InstallationSummary;
+use Preciouslyson\MachinjiriInstaller\StarterkitManager;
 
 class InstallCommand extends Command
 {
@@ -99,7 +100,7 @@ class InstallCommand extends Command
         // Starter kit
         $starter = $input->getOption('starter');
         if (!$starter && !$noInteraction) {
-            $starter = $io->choice('Select a starter kit', ['default' => 'Default Kit',], 'default');
+            $starter = $io->choice('Select a starter kit', StarterkitManager::startKits(), 'default');
         } elseif (!$starter) {
             $starter = 'default';
         }
