@@ -702,6 +702,9 @@ use Mlangeni\Machinjiri\Core\Database\DatabaseConnection;
 use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
 use Mlangeni\Machinjiri\Core\Artisans\Events\EventListener;
 use Mlangeni\Machinjiri\Core\Debug\Debugger;
+use Mlangeni\Machinjiri\Core\FileSystem\FileSystemManager;
+use Mlangeni\Machinjiri\Core\FileSystem\Adapters\LocalAdapter;
+use Mlangeni\Machinjiri\Core\FileSystem\Adapters\FtpAdapter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -735,6 +738,18 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(Debugger::class, function ($app) {
             return new Debugger($app);
         });
+        
+        $this->app->singleton(LocalAdapter::class, function ($app) {
+            return new LocalAdapter($app->configurations['filesystem'][0]['disks']['local']['root']);
+        });
+        
+        $this->app->singleton(FtpAdapter::class, function ($app) {
+            return new FtpAdapter($app->configurations['filesystem'][0]['disks']['ftp']);
+        });
+        
+        $this->app->singleton(FileSystemManager::class, function ($app) {
+            return new LocalAdapter($app->configurations['filesystem'][0]);
+        });
 
         // Register EventListener service
         $this->bind('events', function($app) {
@@ -750,6 +765,10 @@ class AppServiceProvider extends ServiceProvider
             'cookie' => Cookie::class,
             'db' => 'db.connection',
             'debugger' => Debugger::class,
+            // file system aliases
+            'fs.adapter.local' => LocalAdapter::class,
+            'fs.adapter.ftp' => FtpAdapter::class,
+            'fs.manager' => FileSystemManager::class,
         ]);
 
     }
@@ -764,6 +783,7 @@ class AppServiceProvider extends ServiceProvider
         if (is_dir($configDir)) {
             $this->mergeConfigFrom($configDir . 'app.php', 'app');
             $this->mergeConfigFrom($configDir . 'database.php', 'database');
+            $this->mergeConfigFrom($configDir . 'filesystem.php', 'filesystem');
         }
 
         // Load application routes
@@ -1615,7 +1635,7 @@ if (!function_exists('env')) {
     function env(string $key, $default = null)
     {
         // Fallback to $_ENV or $_SERVER
-        $value = $_ENV[$key] ?? $_SERVER[$key] ?? env($key);
+        $value = $_ENV[$key] ?? $_SERVER[$key];
         
         return $value !== false ? $value : $default;
     }
