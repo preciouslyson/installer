@@ -144,6 +144,8 @@ class Installer
           'storage/session',
           'storage/cache',
           'storage/logs',
+          'storage/logs/reports',
+          'storage/logs/events',
           'app',
           'app/Controllers',
           'app/Middleware',
@@ -253,6 +255,7 @@ APP_DEBUG=true
 APP_URL=http://localhost:3000
 APP_KEY=
 APP_CIPHER=aes-256-gcm
+APP_VERSION=
 
 # ------------------------------------------------
 # Database Configuration (Sqlite)                |
@@ -276,9 +279,10 @@ DB_FOREIGN_KEYS=true
 # -------------------------------------------------
 CACHE_DRIVER=file
 CACHE_PREFIX=machinjiri_cache
+CACHE_DEFAULT_TTL=300
 
 # -------------------------------------------------
-# Session Configuration (MYSQL)                   |
+# Session Configuration                           |
 # -------------------------------------------------
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
@@ -291,6 +295,22 @@ SESSION_SECURE_COOKIE=false
 # ------------------------------------------------
 QUEUE_DRIVER=sync
 QUEUE_FAILED_DRIVER=database
+# Worker limits
+# MB - worker restarts when exceeded
+QUEUE_WORKER_MAX_MEMORY=256
+# jobs - worker restarts after processing this many
+QUEUE_WORKER_MAX_JOBS=1000
+
+# Supervisor monitor settings
+QUEUE_WORKER_CHECK_INTERVAL=5
+# seconds after which a worker is considered dead
+QUEUE_WORKER_HEARTBEAT_TTL=15
+# seconds to wait before SIGKILL during shutdown
+QUEUE_WORKER_GRACE_PERIOD=10
+# whether worker exits when queue is empty
+QUEUE_WORKER_STOP_ON_EMPTY=false
+# Heartbeat interval inside the worker (implemented in BaseWorker)
+QUEUE_WORKER_HEARTBEAT_INTERVAL=60
 
 # ------------------------------------------------
 # Mailer Configuration                           |
@@ -307,6 +327,14 @@ MAIL_FROM_ADDRESS=your-email-address
 MAIL_FROM_NAME={APP_NAME}
 
 # -------------------------------------------------
+# Redis Server Configuration                      |
+# -------------------------------------------------
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=null
+REDIS_DATABASE=0
+
+# -------------------------------------------------
 # Logging Configuration                           |
 # -------------------------------------------------
 LOG_CHANNEL=stack
@@ -315,7 +343,7 @@ LOG_LEVEL=debug
 # ------------------------------------------------
 # Asset Configuration                            |
 # ------------------------------------------------
-ASSET_URL=null
+ASSET_URL=http://localhost:3000
 
 # -------------------------------------------------
 # View Configuration                              |
@@ -325,11 +353,27 @@ VIEW_COMPILED_PATH=storage/framework/views
 # ------------------------------------------------
 # Bangwe Encryption Configuration                |
 # ------------------------------------------------
-JWT_SECRET=your-super-secret-jwt-key-here
+JWT_SECRET={APP_KEY}
 JWT_ALGO=HS256
 JWT_EXPIRATION=3600
-JWT_ISSUER=your-app-name
-JWT_AUDIENCE=your-app-audience
+JWT_ISSUER={APP_NAME}
+JWT_AUDIENCE={APP_NAME}
+
+# ------------------------------------------------
+# File System Configuration                      |
+# ------------------------------------------------
+FILE_SYSTEM__DEFAULT_DRIVER=local
+FILE_SYSTEM_ROOT=../storage/app
+
+# ftp connection
+FILE_SYSTEM_FTP_HOST=ftp.example.com
+FILE_SYSTEM_FTP_USER=your-username
+FILE_SYSTEM_FTP_PASSWORD=secret
+FILE_SYSTEM_FTP_ROOT=public_html/uploads
+FILE_SYSTEM_FTP_PORT=21
+FILE_SYSTEM_FTP_SSL=null
+FILE_SYSTEM_FTP_PASSIVE=null
+FILE_SYSTEM_FTP_TIMEOUT=90
 ENV;
 
         $envPath = $this->projectDir . '/.env';
@@ -451,6 +495,8 @@ ENV;
         $write($this->projectDir . '/config/providers.php', $this->providersTemplate());
         $write($this->projectDir . '/config/app.php', $this->appConfigTemplate());
         $write($this->projectDir . '/config/mail.php', $this->mailConfigTemplate());
+        $write($this->projectDir . '/bootstrap/artisan.php', $this->artisanBootstrapTemplate());
+        $write($this->projectDir . '/config/filesystem.php', $this->fileSystemConfigurationTemplate());
         $write($this->projectDir . '/config/appserviceprovider.php', $this->AppServiceProviderFileTemplate());
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', $this->AppServiceProviderTemplate());
         $write($this->projectDir . '/config/databaseserviceprovider.php', $this->DatabaseServiceProviderFileTemplate());
@@ -670,7 +716,7 @@ HT;
             <directory>tests</directory>
         </exclude>
         <report>
-            <html outputDirectory="build/coverage" lowUpperBound="35" highLowerBound="70"/>
+            <html outputDirectory="build/coverage" lUpperBound="35" highLowerBound="70"/>
             <clover outputFile="build/logs/clover.xml"/>
             <text outputFile="build/logs/coverage.txt" showUncoveredFiles="true"/>
         </report>
@@ -705,6 +751,8 @@ use Mlangeni\Machinjiri\Core\Debug\Debugger;
 use Mlangeni\Machinjiri\Core\FileSystem\FileSystemManager;
 use Mlangeni\Machinjiri\Core\FileSystem\Adapters\LocalAdapter;
 use Mlangeni\Machinjiri\Core\FileSystem\Adapters\FtpAdapter;
+use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
+use Mlangeni\Machinjiri\Core\Transport\Mail\MailManager;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -740,21 +788,40 @@ class AppServiceProvider extends ServiceProvider
         });
         
         $this->app->singleton(LocalAdapter::class, function ($app) {
-            return new LocalAdapter($app->configurations['filesystem'][0]['disks']['local']['root']);
+            return new LocalAdapter($app->configurations['filesystem']['disks']['local']['root']);
         });
         
         $this->app->singleton(FtpAdapter::class, function ($app) {
-            return new FtpAdapter($app->configurations['filesystem'][0]['disks']['ftp']);
+            return new FtpAdapter($app->configurations['filesystem']['disks']['ftp']);
         });
         
         $this->app->singleton(FileSystemManager::class, function ($app) {
-            return new LocalAdapter($app->configurations['filesystem'][0]);
+            return new LocalAdapter($app->configurations['filesystem']);
+        });
+        
+        $this->app->singleton(CacheManager::class, function ($app) {
+            return new CacheManager($app->configurations['app']['cache']);
+        });
+        
+        $this->app->singleton(MailManager::class, function ($app) {
+          $logger = new Logger('mailer-transport', Logger::DEBUG, true);
+          return new MailManager(
+            $app,
+            null,
+            $logger,
+            new EventListener($logger),
+            null,
+            $app->resolve('queue.dispatcher')
+          );
         });
 
         // Register EventListener service
         $this->bind('events', function($app) {
-            $logger = new Logger('events');
-            return new EventListener($logger);
+            return new EventListener(new Logger('machnjiri', Logger::DEBUG, true));
+        });
+        
+        $this->bind(Logger::class, function($app) {
+            return new Logger('machnjiri', Logger::DEBUG);
         });
 
         // Register aliases for easier access
@@ -765,10 +832,12 @@ class AppServiceProvider extends ServiceProvider
             'cookie' => Cookie::class,
             'db' => 'db.connection',
             'debugger' => Debugger::class,
-            // file system aliases
             'fs.adapter.local' => LocalAdapter::class,
             'fs.adapter.ftp' => FtpAdapter::class,
             'fs.manager' => FileSystemManager::class,
+            'cache.manager' => CacheManager::class,
+            'mail.manager' => MailManager::class,
+            'logger' => Logger::class,
         ]);
 
     }
@@ -784,6 +853,7 @@ class AppServiceProvider extends ServiceProvider
             $this->mergeConfigFrom($configDir . 'app.php', 'app');
             $this->mergeConfigFrom($configDir . 'database.php', 'database');
             $this->mergeConfigFrom($configDir . 'filesystem.php', 'filesystem');
+            $this->mergeConfigFrom($configDir . 'cache.php', 'cache');
         }
 
         // Load application routes
@@ -905,7 +975,7 @@ return [
 PHP;
     }
   
-  protected function appConfigTemplate () { return <<<'PHP'
+  protected function appConfigTemplate() {return <<<'PHP'
 <?php
 /**
  * Application Configuration
@@ -1063,13 +1133,25 @@ return [
     'cache' => [
         'default' => env('CACHE_DRIVER', 'file'),
         'stores' => [
-            'file' => [
-                'driver' => 'file',
-                'path' => BASE . 'storage/cache',
+            'redis' => [
+              'driver' => 'redis',
+              'host' => env('REDIS_HOST', '127.0.0.1')
             ],
-            // Add other cache stores as needed
+            'array' => [
+              'driver' => 'array', 
+              'max_items' => 500,
+              'eviction' => 'lru'
+            ],
+            'file' => [
+              'driver' => 'file',
+              'path' => __DIR__ . '/../storage/',
+              'max_files' => 5000,
+              'file_perm' => 0644,
+            ],
         ],
         'prefix' => env('CACHE_PREFIX', 'machinjiri_cache'),
+        'default_ttl' => env('CACHE_DEFAULT_TTL', 300),
+        'stampede_protection' => true
     ],
     /*
     |--------------------------------------------------------------------------
@@ -1085,7 +1167,7 @@ return [
         'lifetime' => env('SESSION_LIFETIME', 120),
         'expire_on_close' => false,
         'encrypt' => false,
-        'files' => BASE . '/storage/session',
+        'files' => BASE . '/../storage/session',
         'connection' => null,
         'table' => 'sessions',
         'store' => null,
@@ -1094,7 +1176,7 @@ return [
             'SESSION_COOKIE',
             'machinjiri_session'
         ),
-        'path' => '/',
+        'path' => BASE . 'storage/session',
         'domain' => env('SESSION_DOMAIN'),
         'secure' => env('SESSION_SECURE_COOKIE', false),
         'http_only' => true,
@@ -1176,6 +1258,8 @@ PHP;
   
   protected function AppServiceProviderFileTemplate () { return <<<'PHP'
 <?php
+
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -2297,6 +2381,83 @@ return [
                 'from_name'  => env('MAIL_FROM_NAME', 'Machinjiri App'),
                 'debug'      => env('MAIL_DEBUG'),
             ],
+        ],
+    ],
+];
+PHP;
+  }
+  
+  private function artisanBootstrapTemplate() { return <<<'PHP'
+<?php
+
+use Mlangeni\Machinjiri\Core\Container;
+use Mlangeni\Machinjiri\App\Providers\AppServiceProvider;
+use Mlangeni\Machinjiri\App\Providers\QueueServiceProvider;
+
+define('BASE', dirname(__DIR__) . DIRECTORY_SEPARATOR);
+$appRoot = BASE;
+
+if (!is_dir($appRoot)) {
+    die("Invalid app base path: {$appRoot}\n");
+}
+
+$debug = filter_var(getenv('APP_DEBUG') ?: true, FILTER_VALIDATE_BOOLEAN);
+
+$app = new Container($appRoot, $debug, true);
+
+$app->initialize();
+
+$providers = [
+    AppServiceProvider::class,
+    QueueServiceProvider::class,
+];
+
+foreach ($providers as $providerClass) {
+    $provider = new $providerClass($app);
+    $provider->register();
+}
+
+foreach ($providers as $providerClass) {
+    $provider = new $providerClass($app);
+    $provider->boot();
+}
+
+Container::setInstance($app);
+
+if (!function_exists('app')) {
+    function app($abstract = null) {
+        $container = Container::getInstance();
+        return $abstract ? $container->make($abstract) : $container;
+    }
+}
+
+return $app;
+PHP;
+  }
+  
+  private function fileSystemConfigurationTemplate() { return <<<'PHP'
+<?php
+/**
+ * File System Configuration
+ */
+return [
+    // default disk
+    'default' => env('FILE_SYSTEM__DEFAULT_DRIVER', 'local'),
+    'disks' => [
+        'local' => [
+            'driver' => 'local',
+            'root'   => env('FILE_SYSTEM_ROOT', __DIR__ . '/storage/app'),
+        ],
+        'ftp' => [
+            'driver'   => 'ftp',
+            'host'     => env('FILE_SYSTEM_FTP_HOST', 'ftp.example.com'),
+            'username' => env('FILE_SYSTEM_FTP_USER', 'user'),
+            'password' => env('FILE_SYSTEM_FTP_PASSWORD', 'secret'),
+            'root'     => env('FILE_SYSTEM_FTP_ROOT', '/public_html/uploads'),
+            'port'     => env('FILE_SYSTEM_FTP_PORT', 21),
+            'ssl'      => env('FILE_SYSTEM_FTP_SSL', false),
+            'passive'  => env('FILE_SYSTEM_FTP_PASSIVE', true),
+            'timeout'  => env('FILE_SYSTEM_FTP_TIMEOUT', 90),
         ],
     ],
 ];

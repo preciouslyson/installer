@@ -20,6 +20,8 @@ class InstallCommand extends Command
     protected static $defaultDescription = 'Create a new Machinjiri application';
 
     private bool $bannerDisplayed = false;
+    
+    private ?string $resolvedFrameworkVersion = null;
 
     public function __construct()
     {
@@ -77,11 +79,11 @@ class InstallCommand extends Command
         $version = $input->getOption('m-version');
         if (!$version && !$noInteraction) {
             $version = $io->ask('Machinjiri version (leave empty for latest)', '*');
-            if (empty($version)) {
-                $version = '*';
+            if (empty($version) || $version === '*') {
+                $version = $this->resolveFrameworkVersion('*');
             }
         } elseif (!$version) {
-            $version = '*';
+            $version = $this->resolveFrameworkVersion('*');
         }
 
         // Dev/No-dev
@@ -360,5 +362,48 @@ ASCII;
         $io->writeln('');
         $io->writeln('     <fg=white>The Cozy PHP Framework — where code meets comfort</>');
         $io->writeln('');
+    }
+    
+    private function resolveFrameworkVersion(string $requestedVersion): string
+    {
+        // If it's not a wildcard, return as is
+        if ($requestedVersion !== '*' && strtolower($requestedVersion) !== 'latest') {
+            return $requestedVersion;
+        }
+        
+        // Fetch latest stable version from Packagist
+        $latest = $this->fetchLatestFrameworkVersion();
+        if ($latest === null) {
+            return '*';
+        }
+        
+        return '^' . $latest;
+    }
+    
+    private function fetchLatestFrameworkVersion(): ?string
+    {
+        $url = 'https://packagist.org/packages/machinjiri/framework.json';
+        $json = @file_get_contents($url);
+      
+        if ($json === false) {
+            return null;
+        }
+        $data = json_decode($json, true);
+        if (!isset($data['package']['name']) || $data['package']['name'] !== "machinjiri/framework") {
+            return null;
+        }
+        $versions = array_keys($data['package']['versions']);
+        $stableVersions = array_filter($versions, function ($version) {
+            return preg_match('/^\d+\.\d+\.\d+$/', $version);
+        });
+        
+        if (empty($stableVersions)) {
+            usort($versions, 'version_compare');
+            $latest = end($versions);
+            $this->logger->warning("No stable version found, using latest: {$latest}");
+            return $latest;
+        }
+        usort($stableVersions, 'version_compare');
+        return end($stableVersions);
     }
 }

@@ -82,7 +82,7 @@ PHP;
 
   private static function BlogTemplate(): string { return <<<'PHP'
 <?php use Mlangeni\Machinjiri\Core\Views\View; ?>
-<?php View::extend('layouts/blog') ?>
+<% extend 'layouts/blog' %>
 
 <% section('content') %>
 <nav class="navbar fixed-top navbar-expand-lg" id="mainNavbar">
@@ -466,7 +466,7 @@ PHP;
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Machinjiri — <?= $name ?? "Blog" ?></title>
+    <title>Machinjiri — {{ $name ?? "Blog" }}</title>
 
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
