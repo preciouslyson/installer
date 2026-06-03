@@ -255,7 +255,13 @@ APP_DEBUG=true
 APP_URL=http://localhost:3000
 APP_KEY=
 APP_CIPHER=aes-256-gcm
-APP_VERSION=
+APP_VERSION=1.0.0
+APP_SUPPORT_EMAIL=admin@example.com
+
+# ------------------------------------------------
+# Error Reporting - to support email             |
+# ------------------------------------------------
+REPORT_ERRORS=false
 
 # ------------------------------------------------
 # Database Configuration (Sqlite)                |
@@ -324,7 +330,7 @@ MAIL_ENCRYPTION=tls
 MAIL_USERNAME=
 MAIL_PASSWORD=
 MAIL_FROM_ADDRESS=your-email-address
-MAIL_FROM_NAME={APP_NAME}
+MAIL_FROM_NAME={$this->projectName}
 
 # -------------------------------------------------
 # Redis Server Configuration                      |
@@ -356,8 +362,8 @@ VIEW_COMPILED_PATH=storage/framework/views
 JWT_SECRET={APP_KEY}
 JWT_ALGO=HS256
 JWT_EXPIRATION=3600
-JWT_ISSUER={APP_NAME}
-JWT_AUDIENCE={APP_NAME}
+JWT_ISSUER={$this->projectName}
+JWT_AUDIENCE={$this->projectName}
 
 # ------------------------------------------------
 # File System Configuration                      |
@@ -536,26 +542,18 @@ require \$composerAutoload;
 
 /* Import necessary classes */
 use Mlangeni\Machinjiri\Core\Machinjiri;
-use Mlangeni\Machinjiri\Core\Http\HttpResponse;
 use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
 
 // Load helper functions
 require_once CWD . '/helpers.php';
 
 /**
- * Read APP_DEBUG from environment (supports `.env` or server env)
- * Default to true (development) if not explicitly set to false.
- */
-\$debug = filter_var(getenv('APP_DEBUG') ?: true, FILTER_VALIDATE_BOOLEAN);
-
-/**
  * Instantiating the Machinjiri Framework
  */
-\$machinjiri = Machinjiri::App(CWD, \$debug);
+\$machinjiri = Machinjiri::App(CWD);
 /**
  * Start App Entry Logger
  */
-\$log = new Logger('app_main');
 PHP;
     }
 
@@ -563,35 +561,16 @@ PHP;
 <?php
 /*
  * Public Entry Point
+ * @Author: Precious Lyson
  * This file serves as the front controller for all HTTP requests.
  * It bootstraps the application and handles incoming requests.
  * Make sure to keep this file secure and do not expose sensitive information.
  */
 require __DIR__ . '/../bootstrap/app.php';
-
-try {
-    /* Initialise and run the application (includes request handling & response sending) */
-    \$machinjiri->init();
-} catch (Throwable \$e) {
-    \$log->error(\$e->getMessage(), [
-      'file' => \$e->getFile(),
-      'line' => \$e->getLine(),
-    ]);
-    /* Send a generic 500 error page in production, detailed error in debug mode */
-    \$isDebug = defined('APP_DEBUG') ? APP_DEBUG : false;
-    if (\$isDebug) {
-      (new HttpResponse())
-      ->setStatusCode(500)
-      ->setBody('<h1>Application Error</h1><pre>' . htmlspecialchars((string) \$e) . '</pre>')
-      ->send();
-    } else {
-      (new HttpResponse())
-      ->setStatusCode(500)
-      ->setBody('<h1>Server Error</h1><p>Something went wrong. Please try again later.</p>')
-      ->send();
-    }
-    exit(1);
-}
+/**
+ * Initialize Machinjiri Framework
+ */
+\$machinjiri->init();
 /* Handle the incoming request and send the response */
 PHP;
     }
