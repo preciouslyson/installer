@@ -255,11 +255,11 @@ class Installer
 # -------------------------------------------------
 #   Application configurations                    |
 # -------------------------------------------------
-APP_NAME="{$this->projectName}"
+APP_NAME="sanity-fm"
 APP_ENV=local
 APP_DEBUG=true
 APP_URL=http://localhost:3000
-APP_KEY=
+APP_KEY=base64:HsGNqg9N81WvYvlyaoMsoxu4jC33sjBq2YANd3JHb/M=
 APP_CIPHER=aes-256-gcm
 APP_VERSION=1.0.0
 APP_SUPPORT_EMAIL=admin@example.com
@@ -273,7 +273,7 @@ REPORT_ERRORS=false
 # Database Configuration                         |
 # ------------------------------------------------
 DB_FOREIGN_KEYS=true
-DB_PREFETCH=false
+DB_PREFETCH=true
 # Database Configuration (Sqlite) Default
 # ------------------------------------------------
 DB_CONNECTION=sqlite
@@ -282,18 +282,19 @@ DB_DATABASE=database/database.sqlite
 # Database Configuration (MYSQL, PostGres, etc)
 # ------------------------------------------------
 # DB_CONNECTION=mysql
-# DB_HOST=host-server
-# DB_USERNAME=your-username
-# DB_PASSWORD=your-password
-# DB_DATABASE=database-name
+# DB_HOST=127.0.0.1
+# DB_USERNAME=root
+# DB_PASSWORD=
+# DB_DATABASE=week
 # DB_PORT=3306
 
 # -------------------------------------------------
 # Cache Configuration                             |
 # -------------------------------------------------
-CACHE_DRIVER=file
+CACHE_DRIVER=redis
 CACHE_PREFIX=machinjiri_cache
 CACHE_DEFAULT_TTL=300
+CACHE_LOCAL_STORAGE=
 
 # -------------------------------------------------
 # Session Configuration                           |
@@ -338,7 +339,7 @@ MAIL_ENCRYPTION=tls
 MAIL_USERNAME=
 MAIL_PASSWORD=
 MAIL_FROM_ADDRESS=your-email-address
-MAIL_FROM_NAME={$this->projectName}
+MAIL_FROM_NAME=sanity-fm
 
 # -------------------------------------------------
 # Redis Server Configuration                      |
@@ -370,14 +371,14 @@ VIEW_COMPILED_PATH=storage/framework/views
 JWT_SECRET={APP_KEY}
 JWT_ALGO=HS256
 JWT_EXPIRATION=3600
-JWT_ISSUER={$this->projectName}
-JWT_AUDIENCE={$this->projectName}
+JWT_ISSUER=sanity-fm
+JWT_AUDIENCE=sanity-fm
 
 # ------------------------------------------------
 # File System Configuration                      |
 # ------------------------------------------------
-FILE_SYSTEM__DEFAULT_DRIVER=local
-FILE_SYSTEM_ROOT=../storage/app
+FILE_SYSTEM_DEFAULT_DRIVER=local
+FILE_SYSTEM_ROOT=
 
 # ftp connection
 FILE_SYSTEM_FTP_HOST=ftp.example.com
@@ -507,10 +508,12 @@ ENV;
         $write($this->projectDir . '/public/.htaccess', $this->publicHtaccess());
         
         $write($this->projectDir . '/config/providers.php', $this->providersTemplate());
-        $write($this->projectDir . '/config/services/app.php', $this->appConfigTemplate());
-        $write($this->projectDir . '/config/services/mail.php', $this->mailConfigTemplate());
+        $write($this->projectDir . '/config/app.php', $this->appConfigTemplate());
+        $write($this->projectDir . '/config/mail.php', $this->mailConfigTemplate());
+        $write($this->projectDir . '/config/database.php', $this->databaseConfigTemplate());
+        $write($this->projectDir . '/config/cache.php', $this->cacheConfigTemplate());
         $write($this->projectDir . '/bootstrap/artisan.php', $this->artisanBootstrapTemplate());
-        $write($this->projectDir . '/config/services/filesystem.php', $this->fileSystemConfigurationTemplate());
+        $write($this->projectDir . '/config/filesystem.php', $this->fileSystemConfigurationTemplate());
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', $this->AppServiceProviderTemplate());
         $write($this->projectDir . '/app/Providers/DatabaseServiceProvider.php', $this->DatabaseServiceProviderTemplate());
         $write($this->projectDir . '/database/cache-prefetch-db.php', $this->dbCachePrefetchTemplate());
@@ -729,7 +732,6 @@ use Mlangeni\Machinjiri\Core\Http\HttpRequest;
 use Mlangeni\Machinjiri\Core\Http\HttpResponse;
 use Mlangeni\Machinjiri\Core\Authentication\Session;
 use Mlangeni\Machinjiri\Core\Authentication\Cookie;
-use Mlangeni\Machinjiri\Core\Database\DatabaseConnection;
 use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
 use Mlangeni\Machinjiri\Core\Artisans\Events\EventListener;
 use Mlangeni\Machinjiri\Core\Debug\Debugger;
@@ -777,7 +779,7 @@ class AppServiceProvider extends ServiceProvider
         });
         
         $this->app->singleton(CacheManager::class, function ($app) {
-            return new CacheManager($app->configurations['app']['cache']);
+            return new CacheManager($app->configurations['cache']);
         });
         
         $this->app->singleton(MailManager::class, function ($app) {
@@ -798,7 +800,7 @@ class AppServiceProvider extends ServiceProvider
         });
         
         $this->bind(Logger::class, function($app) {
-            return new Logger('machnjiri', Logger::DEBUG);
+            return new Logger('machinjiri', Logger::DEBUG);
         });
 
         // Register aliases for easier access
@@ -824,12 +826,13 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Load application configuration
-        $configDir = $this->app->config . 'services/';
+        $configDir = $this->app->config;
         if (is_dir($configDir)) {
             $this->mergeConfigFrom($configDir . 'app.php', 'app');
-            $this->mergeConfigFrom($configDir . 'database.php', 'database');
             $this->mergeConfigFrom($configDir . 'filesystem.php', 'filesystem');
+            $this->mergeConfigFrom($configDir . 'database.php', 'database');
             $this->mergeConfigFrom($configDir . 'cache.php', 'cache');
+            $this->mergeConfigFrom($configDir . 'mail.php', 'mail');
         }
 
         // Load application routes
@@ -909,11 +912,6 @@ class DatabaseServiceProvider extends ServiceProvider
     
     public function boot(): void
     {
-      $configDir = $this->app->config;
-      if (is_dir($configDir)) {
-        $this->mergeConfigFrom($configDir . '/services/database.php', 'database');
-      }
-      
       try {
         $this->prefetchDatabase();
       } catch (MachinjiriException $machinjiriException) {
@@ -958,10 +956,7 @@ class DatabaseServiceProvider extends ServiceProvider
               $callback($prefetchManager);
               $logger->info("Database prefetch warmer executed \n table => {warmer}", ['warmer' => $name]);
             } catch (MachinjiriException $e) {
-              $logger->error("Prefetch warmer failed \nwarmer => {warmer}\nerror =>{error}", [
-                'warmer' => $name,
-                'error'  => $e->getMessage()
-              ]);
+              throw new MachinjiriException(" Failed to Warmer on table '{$name}' due to: " . $e->getMessage());
             }
           }
         }
@@ -1022,7 +1017,7 @@ return [
 PHP;
     }
   
-  protected function appConfigTemplate() {return <<<'PHP'
+  protected function appConfigTemplate() { return <<<'PHP'
 <?php
 /**
  * Application Configuration
@@ -1120,89 +1115,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Autoloaded Service Providers
-    |--------------------------------------------------------------------------
-    |
-    | The service providers listed here will be automatically loaded on the
-    | request to your application. Feel free to add your own services to
-    | this array to grant expanded functionality to your applications.
-    |
-    */
-    'providers' => [
-        
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Class Aliases
-    |--------------------------------------------------------------------------
-    |
-    | This array of class aliases will be registered when this application
-    | is started. However, feel free to register as many as you wish as
-    | the aliases are "lazy" loaded so they don't hinder performance.
-    |
-    */
-    'aliases' => [
-    
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Database Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify which database connection the application should
-    | use. The default is SQLite, but other connections are available.
-    |
-    */
-    'database' => [
-        'default' => env('DB_CONNECTION', 'sqlite'),
-        'prefetch' => env('DB_PREFETCH', false),
-        'connections' => [
-            'sqlite' => [
-                'driver' => 'sqlite',
-                'database' => env('DB_DATABASE', env('DB_DATABASE')),
-                'prefix' => '',
-                'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
-            ],
-            // Add other database connections as needed or leave in .env
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cache Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the cache store that should be used by the
-    | application. The default is "file", but other stores are available.
-    |
-    */
-    'cache' => [
-        'default' => env('CACHE_DRIVER', 'file'),
-        'stores' => [
-            'redis' => [
-              'driver' => 'redis',
-              'host' => env('REDIS_HOST', '127.0.0.1')
-            ],
-            'array' => [
-              'driver' => 'array', 
-              'max_items' => 500,
-              'eviction' => 'lru'
-            ],
-            'file' => [
-              'driver' => 'file',
-              'path' => __DIR__ . '/../storage/',
-              'max_files' => 5000,
-              'file_perm' => 0644,
-            ],
-        ],
-        'prefix' => env('CACHE_PREFIX', 'machinjiri_cache'),
-        'default_ttl' => env('CACHE_DEFAULT_TTL', 300),
-        'stampede_protection' => true
-    ],
-    /*
-    |--------------------------------------------------------------------------
     | Session Configuration
     |--------------------------------------------------------------------------
     |
@@ -1215,7 +1127,7 @@ return [
         'lifetime' => env('SESSION_LIFETIME', 120),
         'expire_on_close' => false,
         'encrypt' => false,
-        'files' => BASE . '/../storage/session',
+        'files' => __DIR__ . '/../storage/session',
         'connection' => null,
         'table' => 'sessions',
         'store' => null,
@@ -1224,57 +1136,11 @@ return [
             'SESSION_COOKIE',
             'machinjiri_session'
         ),
-        'path' => BASE . 'storage/session',
+        'path' => __DIR__ . '/../storage/session',
         'domain' => env('SESSION_DOMAIN'),
         'secure' => env('SESSION_SECURE_COOKIE', false),
         'http_only' => true,
         'same_site' => 'lax',
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Mail Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Here you may specify the mail settings for the application.
-    |
-    */
-    'mail' => [
-        'default' => env('MAIL_MAILER', 'smtp'),
-        'mailers' => [
-            'smtp' => [
-                'transport' => 'smtp',
-                'host' => env('MAIL_HOST', 'smtp.mailtrap.io'),
-                'port' => env('MAIL_PORT', 2525),
-                'encryption' => env('MAIL_ENCRYPTION', 'tls'),
-                'username' => env('MAIL_USERNAME'),
-                'password' => env('MAIL_PASSWORD'),
-                'timeout' => null,
-                'auth_mode' => null,
-            ],
-            // Add other mailers as needed
-        ],
-        'from' => [
-            'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-            'name' => env('MAIL_FROM_NAME', 'Example'),
-        ],
-    ],
-
-    /*
-    |--------------------------------------------------------------------------
-    | Service Provider Configuration
-    |--------------------------------------------------------------------------
-    |
-    | Configuration for service provider behavior.
-    |
-    */
-    'provider' => [
-        'deferred' => [
-            // List deferred service providers here
-        ],
-        'eager' => [
-            // List eager-loaded service providers here
-        ],
     ],
 
     /*
@@ -2354,23 +2220,24 @@ PHP;
 <?php
 
 return [
-    'default' => env('MAIL_DRIVER', 'phpmailer'),
-
-    'transports' => [
-        'phpmailer' => [
-            'type' => 'phpmailer',
-            'options' => [
-                'host'       => env('MAIL_HOST', 'smtp.mailtrap.io'),
-                'port'       => env('MAIL_PORT', 2525),
-                'encryption' => env('MAIL_ENCRYPTION', 'tls'),
-                'username'   => env('MAIL_USERNAME'),
-                'password'   => env('MAIL_PASSWORD'),
-                'from_email' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-                'from_name'  => env('MAIL_FROM_NAME', 'Machinjiri App'),
-                'debug'      => env('MAIL_DEBUG'),
-            ],
-        ],
+  'default' => env('MAIL_MAILER', 'smtp'),
+  'mailers' => [
+    'smtp' => [
+      'transport' => 'smtp',
+      'host' => env('MAIL_HOST', 'smtp.mailtrap.io'),
+      'port' => env('MAIL_PORT', 2525),
+      'encryption' => env('MAIL_ENCRYPTION', 'tls'),
+      'username' => env('MAIL_USERNAME'),
+      'password' => env('MAIL_PASSWORD'),
+      'timeout' => null,
+      'auth_mode' => null,
     ],
+      // Add other mailers as needed
+  ],
+  'from' => [
+      'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+      'name' => env('MAIL_FROM_NAME', 'Example'),
+  ]
 ];
 PHP;
   }
@@ -2430,11 +2297,11 @@ PHP;
  */
 return [
     // default disk
-    'default' => env('FILE_SYSTEM__DEFAULT_DRIVER', 'local'),
+    'default' => env('FILE_SYSTEM_DEFAULT_DRIVER', 'local'),
     'disks' => [
         'local' => [
             'driver' => 'local',
-            'root'   => env('FILE_SYSTEM_ROOT', __DIR__ . '/storage/app'),
+            'root'   => env('FILE_SYSTEM_ROOT') ?: __DIR__ . '/../storage/app',
         ],
         'ftp' => [
             'driver'   => 'ftp',
@@ -2474,6 +2341,64 @@ return [
         });
         $manager->warm('users:active');
     },*/
+];
+PHP;
+  }
+  
+  private function cacheConfigTemplate() { return <<<'PHP'
+<?php
+/**
+ * Cache Configuration
+ */
+return [
+    'default' => env('CACHE_DRIVER', 'file'),
+    'stores' => [
+        'redis' => [
+          'driver' => 'redis',
+          'host' => env('REDIS_HOST', '127.0.0.1')
+        ],
+        'array' => [
+          'driver' => 'array', 
+          'max_items' => 500,
+          'eviction' => 'lru'
+        ],
+        'file' => [
+          'driver' => 'file',
+          'path' =>  env('CACHE_LOCAL_STORAGE') ?: __DIR__ . '/../storage/',
+          'max_files' => 5000,
+          'file_perm' => 0644,
+        ],
+    ],
+    'prefix' => env('CACHE_PREFIX', 'machinjiri_cache'),
+    'default_ttl' => env('CACHE_DEFAULT_TTL', 300),
+    'stampede_protection' => true
+];
+PHP;
+  }
+  
+  private function databaseConfigTemplate() { return <<<'PHP'
+<?php
+
+/*
+  |--------------------------------------------------------------------------
+  | Database Configuration
+  |--------------------------------------------------------------------------
+  |
+  | Here you may specify which database connection the application should
+  | use. The default is SQLite, but other connections are available.
+  |
+  */
+return [
+  'default' => env('DB_CONNECTION', 'sqlite'),
+  'prefetch' => env('DB_PREFETCH', false),
+  'connections' => [
+    'sqlite' => [
+        'driver' => 'sqlite',
+        'database' => env('DB_DATABASE', 'database/database.sqlite'),
+        'prefix' => '',
+        'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
+    ],
+  ]
 ];
 PHP;
   }
