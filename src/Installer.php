@@ -141,6 +141,10 @@ class Installer
           'database/migrations',
           'database/seeders',
           'storage',
+          'storage/app',
+          'storage/store',
+          'storage/framework',
+          'storage/framework/queue',
           'storage/session',
           'storage/cache',
           'storage/logs',
@@ -154,6 +158,8 @@ class Installer
           'app/Queue/Drivers',
           'tests/Unit',
           'tests/Features',
+          'config',
+          'config/services'
         ];
 
         foreach ($directories as $directory) {
@@ -264,14 +270,16 @@ APP_SUPPORT_EMAIL=admin@example.com
 REPORT_ERRORS=false
 
 # ------------------------------------------------
-# Database Configuration (Sqlite)                |
+# Database Configuration                         |
+# ------------------------------------------------
+DB_FOREIGN_KEYS=true
+DB_PREFETCH=false
+# Database Configuration (Sqlite) Default
 # ------------------------------------------------
 DB_CONNECTION=sqlite
 DB_DATABASE=database/database.sqlite
-DB_FOREIGN_KEYS=true
 
-# ------------------------------------------------
-# Database Configuration (MYSQL)                 |
+# Database Configuration (MYSQL, PostGres, etc)
 # ------------------------------------------------
 # DB_CONNECTION=mysql
 # DB_HOST=host-server
@@ -499,15 +507,13 @@ ENV;
         $write($this->projectDir . '/public/.htaccess', $this->publicHtaccess());
         
         $write($this->projectDir . '/config/providers.php', $this->providersTemplate());
-        $write($this->projectDir . '/config/app.php', $this->appConfigTemplate());
-        $write($this->projectDir . '/config/mail.php', $this->mailConfigTemplate());
+        $write($this->projectDir . '/config/services/app.php', $this->appConfigTemplate());
+        $write($this->projectDir . '/config/services/mail.php', $this->mailConfigTemplate());
         $write($this->projectDir . '/bootstrap/artisan.php', $this->artisanBootstrapTemplate());
-        $write($this->projectDir . '/config/filesystem.php', $this->fileSystemConfigurationTemplate());
-        $write($this->projectDir . '/config/appserviceprovider.php', $this->AppServiceProviderFileTemplate());
+        $write($this->projectDir . '/config/services/filesystem.php', $this->fileSystemConfigurationTemplate());
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', $this->AppServiceProviderTemplate());
-        $write($this->projectDir . '/config/databaseserviceprovider.php', $this->DatabaseServiceProviderFileTemplate());
         $write($this->projectDir . '/app/Providers/DatabaseServiceProvider.php', $this->DatabaseServiceProviderTemplate());
-
+        $write($this->projectDir . '/database/cache-prefetch-db.php', $this->dbCachePrefetchTemplate());
         $write($this->projectDir . '/phpunit.xml', $this->phpunitTemplate());
     }
     
@@ -713,7 +719,7 @@ HT;
 XML;
     }
     
-    public function AppServiceProviderTemplate () {return <<<'PHP'
+    public function AppServiceProviderTemplate () { return <<<'PHP'
 <?php
 
 namespace Mlangeni\Machinjiri\App\Providers;
@@ -752,14 +758,6 @@ class AppServiceProvider extends ServiceProvider
         // Register authentication services
         $this->singleton(Session::class);
         $this->singleton(Cookie::class);
-
-        // Register database connection
-        $this->singleton('db.connection', function($app) {
-            $config = $app->getConfigurations()['database'];
-            DatabaseConnection::setConfig($config);
-            DatabaseConnection::setPath($app->database);
-            return DatabaseConnection::getInstance();
-        });
         
         // Register Debugger
         $this->app->singleton(Debugger::class, function ($app) {
@@ -809,7 +807,6 @@ class AppServiceProvider extends ServiceProvider
             'response' => HttpResponse::class,
             'session' => Session::class,
             'cookie' => Cookie::class,
-            'db' => 'db.connection',
             'debugger' => Debugger::class,
             'fs.adapter.local' => LocalAdapter::class,
             'fs.adapter.ftp' => FtpAdapter::class,
@@ -827,7 +824,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Load application configuration
-        $configDir = $this->app->config;
+        $configDir = $this->app->config . 'services/';
         if (is_dir($configDir)) {
             $this->mergeConfigFrom($configDir . 'app.php', 'app');
             $this->mergeConfigFrom($configDir . 'database.php', 'database');
@@ -841,8 +838,6 @@ class AppServiceProvider extends ServiceProvider
             $this->loadRoutesFrom($routesDir . 'web.php');
         }
 
-        // Trigger app booted event
-        $this->triggerEvent('app.booted');
     }
 
     public function provides(): array
@@ -863,6 +858,7 @@ PHP;
 namespace Mlangeni\Machinjiri\App\Providers;
 
 use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
+use Mlangeni\Machinjiri\Core\Database\DatabaseConnection;
 use Mlangeni\Machinjiri\Core\Database\Seeder\SeederManager;
 use Mlangeni\Machinjiri\Core\Database\Factory\FactoryManager;
 use Mlangeni\Machinjiri\Core\Database\Migrations\MigrationHandler;
@@ -870,6 +866,8 @@ use Mlangeni\Machinjiri\Core\Database\Migrations\MigrationCreator;
 use Mlangeni\Machinjiri\Core\Database\QueryBuilder;
 use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
 use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
+use Mlangeni\Machinjiri\Core\Database\Caching\PrefetchManager;
+use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
 
 class DatabaseServiceProvider extends ServiceProvider
 {
@@ -878,26 +876,96 @@ class DatabaseServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->singleton('migration.creator', function ($app) {
+        $this->singleton('db.kernel.connection', function($app) {
+          $config = $app->getConfigurations()['database'];
+          DatabaseConnection::setConfig($config);
+          DatabaseConnection::setPath($app->database);
+          return DatabaseConnection::getInstance();
+        });
+        
+        $this->singleton(MigrationCreator::class, function ($app) {
           return new MigrationCreator();
         });
         
-        $this->singleton('migration.manager', function ($app) {
+        $this->singleton(MigrationHandler::class, function ($app) {
           return new MigrationHandler();
         });
         
-        $this->singleton('db.seeder', function ($app) {
+        $this->singleton(SeederManager::class, function ($app) {
           return new SeederManager($app);
         });
         
-        $this->singleton('db.factory', function ($app) {
+        $this->singleton(FactoryManager::class, function ($app) {
           return new FactoryManager($app);
         });
         
+        $this->aliasMany([
+          'db.migration.creator' => MigrationCreator::class,
+          'db.migration.handler' => MigrationHandler::class,
+          'db.seeder.manager' => SeederManager::class,
+          'db.factory.manager' => FactoryManager::class,
+        ]);
     }
     
     public function boot(): void
-    {}
+    {
+      $configDir = $this->app->config;
+      if (is_dir($configDir)) {
+        $this->mergeConfigFrom($configDir . '/services/database.php', 'database');
+      }
+      
+      try {
+        $this->prefetchDatabase();
+      } catch (MachinjiriException $machinjiriException) {
+        $machinjiriException->show();
+      }
+    }
+    
+    /**
+     * Prefetch database queries to cache.
+     * @return void
+     */
+    public function prefetchDatabase(): void
+    {
+        $prefetchEnabled = filter_var(env('DB_PREFETCH') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+        if ($prefetchEnabled) {
+          $prefetchFile = $this->app->database . "cache-prefetch-db.php";
+          if (!is_dir($this->app->database) || !is_file($prefetchFile)) {
+            throw new MachinjiriException("Unable to find Prefetch Database file. [cache-prefetch-db.php]");
+          }
+          
+          $warmers = require $prefetchFile;
+          
+          if (!is_array($warmers)) {
+              throw new MachinjiriException("Prefetch file must return an array of callbacks in {$prefetchFile}");
+          }
+          
+          if (!$this->bound(CacheManager::class)) {
+            throw new MachinjiriException('CacheManager not bound – cannot prefetch database queries');
+          }
+          
+          $cacheManager = $this->resolve(CacheManager::class);
+          $prefetchManager = new PrefetchManager($cacheManager);
+          $logger = new Logger("db-prefetch-provider");
+          
+          foreach ($warmers as $name => $callback) {
+            if (!is_callable($callback)) {
+                $logger->warning("Prefetch warmer {$name} is not callable, skipping");
+                continue;
+            }
+      
+            try {
+              $callback($prefetchManager);
+              $logger->info("Database prefetch warmer executed \n table => {warmer}", ['warmer' => $name]);
+            } catch (MachinjiriException $e) {
+              $logger->error("Prefetch warmer failed \nwarmer => {warmer}\nerror =>{error}", [
+                'warmer' => $name,
+                'error'  => $e->getMessage()
+              ]);
+            }
+          }
+        }
+    }
     /**
      * Get the services provided by the provider
      */
@@ -1089,6 +1157,7 @@ return [
     */
     'database' => [
         'default' => env('DB_CONNECTION', 'sqlite'),
+        'prefetch' => env('DB_PREFETCH', false),
         'connections' => [
             'sqlite' => [
                 'driver' => 'sqlite',
@@ -1096,7 +1165,7 @@ return [
                 'prefix' => '',
                 'foreign_key_constraints' => env('DB_FOREIGN_KEYS', true),
             ],
-            // Add other database connections as needed
+            // Add other database connections as needed or leave in .env
         ],
     ],
 
@@ -1231,66 +1300,6 @@ return [
     'jwt_expiration' => env('JWT_EXPIRATION', 3600),
     'jwt_issuer' => env('JWT_ISSUER', 'machinjiri'),
     'jwt_audience' => env('JWT_AUDIENCE', 'machinjiri_api'),
-];
-PHP;
-  }
-  
-  protected function AppServiceProviderFileTemplate () { return <<<'PHP'
-<?php
-
-
-return [
-    /*
-    |--------------------------------------------------------------------------
-    | Appserviceprovider Configuration
-    |--------------------------------------------------------------------------
-    |
-    | This configuration file manages the settings for the Appserviceprovider
-    | component of your application.
-    |
-    | You can modify these values to suit your application needs.
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | Configuration Section
-    |--------------------------------------------------------------------------
-    |
-    | Add your configuration values here. You can organize them into
-    | logical sections as needed for your application.
-    |
-    */
-
-];
-PHP;
-  }
-  
-  protected function DatabaseServiceProviderFileTemplate () { return <<<'PHP'
-<?php
-return [
-    /*
-    |--------------------------------------------------------------------------
-    | DatabaseServiceProvider Configuration
-    |--------------------------------------------------------------------------
-    |
-    | This configuration file manages the settings for the DatabaseServiceProvider
-    | component of your application.
-    |
-    | You can modify these values to suit your application needs.
-    |
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | Configuration Section
-    |--------------------------------------------------------------------------
-    |
-    | Add your configuration values here. You can organize them into
-    | logical sections as needed for your application.
-    |
-    */
-
 ];
 PHP;
   }
@@ -2439,6 +2448,32 @@ return [
             'timeout'  => env('FILE_SYSTEM_FTP_TIMEOUT', 90),
         ],
     ],
+];
+PHP;
+  }
+  
+  private function dbCachePrefetchTemplate() { return <<<'PHP'
+<?php
+
+use Mlangeni\Machinjiri\Core\Database\QueryBuilder;
+use Mlangeni\Machinjiri\Core\Database\Caching\PrefetchManager;
+
+return [
+    /**
+     * An example warmer to warm the users table as it will be 
+     * frequently used by application
+     */
+    /*"users" => function (PrefetchManager $manager) {
+        // Register a custom warmer that caches the most used user query
+        $manager->registerWarmer('users:active', function ($cache) {
+            // Build your query (example using QueryBuilder)
+            $result = (new QueryBuilder("users"))
+                      ->select(['*'])->get();
+            $key = 'dbq:' . md5('SELECT * FROM users WHERE active = ?') . ':' . md5('1');
+            $cache->tags(['users'])->set($key, $result, 4);
+        });
+        $manager->warm('users:active');
+    },*/
 ];
 PHP;
   }
