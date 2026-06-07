@@ -63,19 +63,28 @@ PHP;
   private static function HomeControllerTemplate(): string { return <<<PHP
 <?php
 
-/**
- * Blog Controller
- */
-namespace Mlangeni\\Machinjiri\\App\\Controllers;
-use Mlangeni\\Machinjiri\\Core\\Views\\View;
+namespace Mlangeni\Machinjiri\App\Controllers;
 
-// HomeController class
-class BlogController
+use Mlangeni\Machinjiri\Core\Artisans\Base\AbstractController;
+use Mlangeni\Machinjiri\Core\Http\HttpRequest;
+use Mlangeni\Machinjiri\Core\Http\HttpResponse;
+
+class BlogController extends AbstractController
 {
-    public function index(): void
+    /**
+     * Display the blog template
+     *
+     * @param HttpRequest  \$request
+     * @param HttpResponse \$response
+     * @return string|HttpResponse
+     */
+    public function index(HttpRequest \$request, HttpResponse \$response)
     {
-        view('blog', ['name' => 'Blog Template']);
+        // render the blog view
+        return \$this->view('blog', ['name' => 'Blog Template']);
     }
+    
+    // Add your custom methods below
 }
 PHP;
   }
