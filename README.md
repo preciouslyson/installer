@@ -19,7 +19,7 @@ Add to your existing project's composer.json:
 ```json
 {
     "require-dev": {
-        "preciouslyson/installer": "^1.2.1"
+        "preciouslyson/installer": "^1.2.6"
     }
 }
 ```
