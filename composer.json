@@ -2,7 +2,7 @@
   "name": "machinjiri/installer",
   "description": "Installer for Machinjiri PHP Framework",
   "type": "composer-plugin",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "license": "MIT",
   "authors": [
     {
