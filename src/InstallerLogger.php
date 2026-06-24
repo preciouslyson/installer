@@ -1,6 +1,6 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller;
+namespace Mlangeni\Machinjiri\Installer;
 
 use Symfony\Component\Console\Style\SymfonyStyle;
 

@@ -98,27 +98,27 @@ The installer now performs these steps in order:
 
 ### Basic Installation
 ```bash
-machinjiri new my-awesome-app
+machinjiri create my-awesome-app
 ```
 
 ### With Verbose Output
 ```bash
-machinjiri new my-awesome-app -v
+machinjiri create my-awesome-app -v
 ```
 
 ### Dry-Run to Preview
 ```bash
-machinjiri new my-awesome-app --dry-run
+machinjiri create my-awesome-app --dry-run
 ```
 
 ### Force Overwrite
 ```bash
-machinjiri new my-awesome-app --force
+machinjiri create my-awesome-app --force
 ```
 
 ### With Specific Version
 ```bash
-machinjiri new my-awesome-app --m-version=2.0
+machinjiri create my-awesome-app --m-version=2.0
 ```
 
 ## Installation Log
@@ -178,8 +178,9 @@ To extend the installer:
 2. Add installation steps using `InstallationManager`
 3. Log important operations using `InstallerLogger`
 4. Display custom summaries with `InstallationSummary`
+5. Refactor namespace
 
 ---
 
-**Last Updated**: January 28, 2026  
-**Installer Version**: 2.2.1
+**Last Updated**: June 24, 2026  
+**Installer Version**: 1.2.8

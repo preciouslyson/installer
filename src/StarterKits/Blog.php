@@ -1,6 +1,6 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller\StarterKits;
+namespace Mlangeni\Machinjiri\Installer\StarterKits;
 
 class Blog
 {

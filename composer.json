@@ -2,7 +2,7 @@
   "name": "machinjiri/installer",
   "description": "Installer for Machinjiri PHP Framework",
   "type": "composer-plugin",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "license": "MIT",
   "authors": [
     {
@@ -30,16 +30,16 @@
   },
   "autoload": {
     "psr-4": {
-      "Preciouslyson\\MachinjiriInstaller\\": "src/"
+      "Mlangeni\\Machinjiri\\Installer\\": "src/"
     }
   },
   "extra": {
-    "class": "Preciouslyson\\MachinjiriInstaller\\Plugin"
+    "class": "Mlangeni\\Machinjiri\\Installer\\Plugin"
   },
   "bin": ["bin/machinjiri"],
   "scripts": {
     "post-autoload-dump": [
-      "Preciouslyson\\MachinjiriInstaller\\ComposerScripts::postAutoloadDump"
+      "Mlangeni\\Machinjiri\\Installer\\ComposerScripts::postAutoloadDump"
     ]
   },
   "minimum-stability": "stable",

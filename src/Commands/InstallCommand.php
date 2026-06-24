@@ -1,6 +1,6 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller\Commands;
+namespace Mlangeni\Machinjiri\Installer\Commands;
 
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\ProgressBar;
@@ -10,9 +10,9 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
-use Preciouslyson\MachinjiriInstaller\Installer;
-use Preciouslyson\MachinjiriInstaller\InstallationSummary;
-use Preciouslyson\MachinjiriInstaller\StarterkitManager;
+use Mlangeni\Machinjiri\Installer\Installer;
+use Mlangeni\Machinjiri\Installer\InstallationSummary;
+use Mlangeni\Machinjiri\Installer\StarterkitManager;
 
 class InstallCommand extends Command
 {
@@ -41,7 +41,6 @@ class InstallCommand extends Command
             ->addOption('no-scripts', null, InputOption::VALUE_NONE, 'Skip Composer scripts')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Perform a dry-run without actually creating files')
             ->addOption('no-interaction', 'n', InputOption::VALUE_NONE, 'Do not ask any interactive questions')
-            // New options
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize Git repository and make initial commit')
             ->addOption('starter', null, InputOption::VALUE_REQUIRED, 'Starter kit (default)')
             ->addOption('prefer-cache', null, InputOption::VALUE_NONE, 'Use Composer cache if available')
@@ -178,7 +177,7 @@ class InstallCommand extends Command
             $installer = new Installer($io, $isVerbose);
             
             $installer->setProgressCallback(function ($step, $message) use ($spinner) {
-                $spinner->setMessage($message);
+                $spinner->setMessage($step . " - " . $message);
             });
 
             $installer->install($projectName, $options);
@@ -196,9 +195,6 @@ class InstallCommand extends Command
             if ($initGit) {
                 $this->initializeGit($targetDir, $io);
             }
-
-            // Post-installation wizard
-            $this->runPostInstallWizard($targetDir, $io, $noInteraction);
 
             $io->success("Machinjiri installed successfully!");
 
@@ -225,8 +221,8 @@ class InstallCommand extends Command
         $io->section('Environment check');
 
         // PHP version
-        if (version_compare(PHP_VERSION, '8.1.0', '<')) {
-            $io->error("Machinjiri requires PHP 8.1.0 or higher. You have " . PHP_VERSION);
+        if (version_compare(PHP_VERSION, '8.2.0', '<')) {
+            $io->error("Machinjiri requires PHP 8.2.0 or higher. You have " . PHP_VERSION);
             return false;
         }
         $io->writeln("PHP version: <info>" . PHP_VERSION . "</info>");
@@ -260,7 +256,7 @@ class InstallCommand extends Command
     private function createSpinner(OutputInterface $output): ProgressBar
     {
         $spinner = new ProgressBar($output);
-        $spinner->setFormat(' %current% [%bar%] %message%');
+        $spinner->setFormat(' [%bar%] %message%');
         $spinner->setBarCharacter('<fg=green>⚬</>');
         $spinner->setEmptyBarCharacter(' ');
         $spinner->setProgressCharacter('➤');
@@ -288,44 +284,6 @@ class InstallCommand extends Command
         $process = new Process(['git', 'commit', '-m', 'Initial commit from Machinjiri installer'], $targetDir);
         $process->run();
         $io->success("Git repository initialized with initial commit.");
-    }
-
-    private function runPostInstallWizard(string $targetDir, SymfonyStyle $io, bool $noInteraction): void
-    {
-        if ($noInteraction) {
-            return;
-        }
-    
-        $io->section('Post-installation setup');
-        $wantsSetup = $io->confirm('Would you like to perform some post-installation setup?', true);
-        if (!$wantsSetup) {
-            return;
-        }
-        if ($io->confirm('Run database migrations?', false)) {
-            $artisan = $targetDir . '/artisan';
-            if (file_exists($artisan)) {
-                $process = new Process(['php', $artisan, 'migration:migrate'], $targetDir);
-                $process->setTimeout(300);
-                $process->run(function ($type, $buffer) use ($io) {
-                    $io->write($buffer);
-                });
-                if ($process->isSuccessful()) {
-                    $io->success("Migrations completed.");
-                } else {
-                    $io->error("Migrations failed: " . $process->getErrorOutput());
-                }
-            } else {
-                $io->warning("Artisan not found. Skipping migrations.");
-            }
-        }
-    
-        if ($io->confirm('Start the built-in PHP development server now?', false)) {
-            $io->writeln("Starting server with <comment>php artisan server:start</comment>");
-            $io->writeln("Press Ctrl+C to stop the server.");
-            $process = new Process(['php', 'artisan', 'server:start'], $targetDir);
-            $process->setTty(true);
-            $process->run();
-        }
     }
 
     private function removeDirectory(string $dir): void
