@@ -1,0 +1,388 @@
+<?php
+
+namespace Mlangeni\Machinjiri\Installer\Stubs;
+
+class ServiceProviders {
+
+    public static function DatabaseServiceProviderTemplate () { return <<<'PHP'
+<?php
+
+namespace Mlangeni\Machinjiri\App\Providers;
+
+use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
+use Mlangeni\Machinjiri\Core\Database\DatabaseConnection;
+use Mlangeni\Machinjiri\Core\Database\Seeder\SeederManager;
+use Mlangeni\Machinjiri\Core\Database\Factory\FactoryManager;
+use Mlangeni\Machinjiri\Core\Database\Migrations\MigrationHandler;
+use Mlangeni\Machinjiri\Core\Database\Migrations\MigrationCreator;
+use Mlangeni\Machinjiri\Core\Database\QueryBuilder;
+use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
+use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
+use Mlangeni\Machinjiri\Core\Database\Caching\PrefetchManager;
+use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
+
+class DatabaseServiceProvider extends ServiceProvider
+{
+    /**
+     * Register core application services
+     */
+    public function register(): void
+    {
+        $this->singleton('db.kernel.connection', function($app) {
+          $config = $app->getConfigurations()['database'];
+          DatabaseConnection::setConfig($config);
+          DatabaseConnection::setPath($app->database);
+          return DatabaseConnection::getInstance();
+        });
+        
+        $this->singleton(MigrationCreator::class, function ($app) {
+          return new MigrationCreator();
+        });
+        
+        $this->singleton(MigrationHandler::class, function ($app) {
+          return new MigrationHandler();
+        });
+        
+        $this->singleton(SeederManager::class, function ($app) {
+          return new SeederManager($app);
+        });
+        
+        $this->singleton(FactoryManager::class, function ($app) {
+          return new FactoryManager($app);
+        });
+        
+        $this->aliasMany([
+          'db.migration.creator' => MigrationCreator::class,
+          'db.migration.handler' => MigrationHandler::class,
+          'db.seeder.manager' => SeederManager::class,
+          'db.factory.manager' => FactoryManager::class,
+        ]);
+    }
+    
+    public function boot(): void
+    {
+      try {
+        $this->prefetchDatabase();
+      } catch (MachinjiriException $machinjiriException) {
+        $machinjiriException->show();
+      }
+    }
+    
+    /**
+     * Prefetch database queries to cache.
+     * @return void
+     */
+    public function prefetchDatabase(): void
+    {
+        $prefetchEnabled = filter_var(env('DB_PREFETCH') ?: 'false', FILTER_VALIDATE_BOOLEAN);
+        if ($prefetchEnabled) {
+          $prefetchFile = $this->app->database . "cache-prefetch-db.php";
+          if (!is_dir($this->app->database) || !is_file($prefetchFile)) {
+            throw new MachinjiriException("Unable to find Prefetch Database file. [cache-prefetch-db.php]");
+          }
+          
+          $warmers = require $prefetchFile;
+          
+          if (!is_array($warmers)) {
+              throw new MachinjiriException("Prefetch file must return an array of callbacks in {$prefetchFile}");
+          }
+          
+          if (!$this->bound(CacheManager::class)) {
+            throw new MachinjiriException('CacheManager not bound – cannot prefetch database queries');
+          }
+          
+          $cacheManager = $this->resolve(CacheManager::class);
+          $prefetchManager = new PrefetchManager($cacheManager);
+          $logger = new Logger("db-prefetch-provider");
+          
+          foreach ($warmers as $name => $callback) {
+            if (!is_callable($callback)) {
+                $logger->warning("Prefetch warmer {$name} is not callable, skipping");
+                continue;
+            }
+      
+            try {
+              $callback($prefetchManager);
+              $logger->info("Database prefetch warmer executed \n table => {warmer}", ['warmer' => $name]);
+            } catch (MachinjiriException $e) {
+              throw new MachinjiriException(" Failed to Warmer on table '{$name}' due to: " . $e->getMessage());
+            }
+          }
+        }
+    }
+    /**
+     * Get the services provided by the provider
+     */
+    public function provides(): array
+    {
+        return array_merge(
+            array_keys($this->bindings),
+            array_keys($this->singletons),
+            array_keys($this->aliases)
+        );
+    }
+}
+PHP;
+    }
+
+    public static function QueueServiceProviderTemplate() { return <<<'PHP'
+<?php
+
+namespace Mlangeni\Machinjiri\App\Providers;
+
+use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
+use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
+use Mlangeni\Machinjiri\Core\Artisans\Contracts\QueueInterface;
+use Mlangeni\Machinjiri\Core\Artisans\Contracts\BaseWorker;
+use Mlangeni\Machinjiri\Core\Artisans\Contracts\BaseJobDispatcher;
+use Mlangeni\Machinjiri\App\Queue\Drivers\DatabaseQueue;
+use Mlangeni\Machinjiri\App\Queue\Drivers\FileQueue;
+use Mlangeni\Machinjiri\App\Queue\Drivers\MemoryQueue;
+use Mlangeni\Machinjiri\App\Queue\Drivers\RedisQueue;
+use Mlangeni\Machinjiri\App\Queue\Drivers\SyncQueue;
+
+class QueueServiceProvider extends ServiceProvider
+{
+    /**
+     * Register QueueService Services
+     */
+    public function register(): void
+    {
+        // Register queue bindings
+        $this->bind('queue', function($app) {
+            $config = $app->getConfigurations()['queue'] ?? [];
+            $driver = $config['default'] ?? getenv('QUEUE_DRIVER');
+            return $this->createQueueDriver($driver, $config);
+        });
+        
+        // Register queue worker
+        $this->singleton('queue.worker', function($app) {
+            $queue = $app->resolve('queue');
+            $processor = $app->resolve('queue.processor');
+            return new BaseWorker($app, $queue, $processor);
+        });
+        
+        // Register job processor
+        $this->singleton('queue.processor', function($app) {
+            return new class($app) extends \Mlangeni\Machinjiri\Core\Artisans\Contracts\BaseJobProcessor {};
+        });
+        
+        // Register job dispatcher
+        $this->singleton('queue.dispatcher', function($app) {
+            $queue = $app->resolve('queue');
+            return new BaseJobDispatcher($app, $queue);
+        });
+    }
+
+    /**
+     * Bootstrap services
+     */
+    public function boot(): void
+    {
+        // Load queue configuration
+        $this->mergeConfigFrom($this->app->config . 'queue.php', 'queue');
+        
+        // Create jobs table if using database driver
+        $this->createJobsTableIfNeeded();
+        
+    }
+
+    /**
+     * Create queue driver instance
+     */
+    protected function createQueueDriver(string $driver, array $config): QueueInterface
+    {
+        $driverConfig = $config['drivers'][$driver] ?? [];
+        
+        switch ($driver) {
+            case 'database':
+                return new DatabaseQueue($this->app, $driver, $driverConfig);
+            case 'redis':
+                return new RedisQueue($this->app, $driver, $driverConfig);
+            case 'file':
+                return new FileQueue($this->app, $driver, $driverConfig);
+            case 'memory':
+                return new MemoryQueue($this->app, $driver, $driverConfig);
+            case 'sync':
+                return new SyncQueue($this->app, $driver, $driverConfig);
+            default:
+                // Try to load custom driver
+                $driverClass = "Mlangeni\\Machinjiri\\App\\Queue\\Drivers\\" . ucfirst($driver) . 'Queue';
+                if (class_exists($driverClass)) {
+                    return new $driverClass($this->app, $driver, $driverConfig);
+                }
+                
+                throw new MachinjiriException("Queue driver not found: {$driver}. Try running php artisan queue:init");
+        }
+    }
+
+    /**
+     * Create jobs table if needed
+     */
+    protected function createJobsTableIfNeeded(): void
+    {
+        $config = $this->getConfigurations()['queue'] ?? [];
+        $driver = $config['default'] ?? 'sync';
+        
+        if ($driver === 'database') {
+            $table = $config['drivers']['database']['table'] ?? 'jobs';
+            
+            $query = new \Mlangeni\Machinjiri\Core\Database\QueryBuilder('');
+            $sql = $query->createTable($table, [
+                'id' => $query->id()->primary()->autoincrement(),
+                'queue' => $query->string('queue', 255)->notNull(),
+                'payload' => $query->text('payload'),
+                'attempts' => $query->integer('attempts')->default(0),
+                'reserved_at' => $query->integer('reserved_at')->default(0),
+                'available_at' => $query->integer('available_at')->notNull(),
+                'created_at' => $query->integer('created_at')->notNull(),
+            ], ['if_not_exists' => true])->compileCreateTable();
+            
+            \Mlangeni\Machinjiri\Core\Database\DatabaseConnection::executeQuery($sql);
+        }
+    }
+}
+PHP;
+  }
+    
+    public static function AppServiceProviderTemplate () { return <<<'PHP'
+<?php
+
+namespace Mlangeni\Machinjiri\App\Providers;
+
+use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
+use Mlangeni\Machinjiri\Core\Http\HttpRequest;
+use Mlangeni\Machinjiri\Core\Http\HttpResponse;
+use Mlangeni\Machinjiri\Core\Authentication\Session;
+use Mlangeni\Machinjiri\Core\Authentication\Cookie;
+use Mlangeni\Machinjiri\Core\Authentication\AuthManager;
+use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
+use Mlangeni\Machinjiri\Core\Artisans\Events\EventListener;
+use Mlangeni\Machinjiri\Core\Debug\Debugger;
+use Mlangeni\Machinjiri\Core\FileSystem\FileSystemManager;
+use Mlangeni\Machinjiri\Core\FileSystem\Adapters\LocalAdapter;
+use Mlangeni\Machinjiri\Core\FileSystem\Adapters\FtpAdapter;
+use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
+use Mlangeni\Machinjiri\Core\Transport\Mail\MailManager;
+use Mlangeni\Machinjiri\Core\Security\Tokens\CSRFToken;
+use Mlangeni\Machinjiri\Core\Routing\RoutingConfig;
+
+
+class AppServiceProvider extends ServiceProvider
+{
+    /**
+     * Register core application services
+     */
+    public function register(): void
+    {
+        // Register HTTP request/response as singletons
+        $this->singleton(HttpRequest::class, function($app) {
+            return HttpRequest::createFromGlobals();
+        });
+
+        $this->singleton(HttpResponse::class, function($app) {
+            return new HttpResponse();
+        });
+
+        // Register authentication services
+        $this->singleton(Session::class);
+        $this->singleton(Cookie::class);
+
+        $this->singleton(AuthManager::class, function ($app) {
+            return new AuthManager($app, $app->configurations['auth']);
+        });
+        
+        // Register Debugger
+        $this->app->singleton(Debugger::class, function ($app) {
+            return new Debugger($app);
+        });
+        
+        $this->app->singleton(LocalAdapter::class, function ($app) {
+            return new LocalAdapter($app->configurations['filesystem']['disks']['local']['root']);
+        });
+        
+        $this->app->singleton(FtpAdapter::class, function ($app) {
+            return new FtpAdapter($app->configurations['filesystem']['disks']['ftp']);
+        });
+        
+        $this->app->singleton(FileSystemManager::class, function ($app) {
+            return new FileSystemManager($app->configurations['filesystem']);
+        });
+        
+        $this->app->singleton(CacheManager::class, function ($app) {
+            return new CacheManager($app->configurations['cache']);
+        });
+        
+        $this->app->singleton(MailManager::class, function ($app) {
+          $logger = new Logger('mailer-transport', Logger::DEBUG, true);
+          return new MailManager($app, null,$logger, new EventListener($logger), null, $app->resolve('queue.dispatcher'));
+        });
+
+        // Register EventListener service
+        $this->bind(EventListener::class, function($app) {
+            return new EventListener(new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG, true));
+        });
+        
+        $this->bind(Logger::class, function($app) {
+            return new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG);
+        });
+        
+        $this->app->singleton(CSRFToken::class, function ($app) {
+            return new CSRFToken($app->resolve(Session::class), $app->resolve(Cookie::class), env("CSRF_TOKEN_NAME", "csrf_token"));
+        });
+
+        $this->singleton(RoutingConfig::class, function ($app) {
+            $config = $this->app->config . 'routing.php';
+            return is_file($config) ? require $config : null;
+        });
+
+        // Register aliases for easier access
+        $this->aliasMany([
+            'request' => HttpRequest::class,
+            'response' => HttpResponse::class,
+            'session' => Session::class,
+            'cookie' => Cookie::class,
+            'debugger' => Debugger::class,
+            'events' => EventListener::class,
+            'fs.adapter.local' => LocalAdapter::class,
+            'fs.adapter.ftp' => FtpAdapter::class,
+            'fs.manager' => FileSystemManager::class,
+            'cache.manager' => CacheManager::class,
+            'mail.manager' => MailManager::class,
+            'logger' => Logger::class,
+            'routing.config' => RoutingConfig::class,
+        ]);
+
+    }
+
+    /**
+     * Bootstrap application services
+     */
+    public function boot(): void
+    {
+        // Load application configuration
+        $configDir = $this->app->config;
+        if (is_dir($configDir)) {
+            $this->mergeConfigFrom($configDir . 'app.php', 'app');
+            $this->mergeConfigFrom($configDir . 'filesystem.php', 'filesystem');
+            $this->mergeConfigFrom($configDir . 'database.php', 'database');
+            $this->mergeConfigFrom($configDir . 'cache.php', 'cache');
+            $this->mergeConfigFrom($configDir . 'mail.php', 'mail');
+            $this->mergeConfigFrom($configDir . 'queue.php', 'queue');
+        }
+
+    }
+
+    public function provides(): array
+    {
+        return array_merge(
+            array_keys($this->bindings),
+            array_keys($this->singletons),
+            array_keys($this->aliases)
+        );
+    }
+}
+PHP;
+    }
+    
+}

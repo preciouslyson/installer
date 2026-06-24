@@ -1,6 +1,6 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller;
+namespace Mlangeni\Machinjiri\Installer;
 
 use Symfony\Component\Console\Application;
 
@@ -24,8 +24,8 @@ if (file_exists(__DIR__.'/../../../autoload.php')) {
     require __DIR__.'/../vendor/autoload.php';
 }
 use Symfony\Component\Console\Application;
-use Preciouslyson\MachinjiriInstaller\Commands\InstallCommand;
-$terminal = new Application('Machinjiri Installer', '1.2.7');
+use Mlangeni\Machinjiri\Installer\Commands\InstallCommand;
+$terminal = new Application('Machinjiri Installer', '1.2.8');
 $terminal->add(new InstallCommand());
 $terminal->run();
 PHP;

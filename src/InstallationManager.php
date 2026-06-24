@@ -1,6 +1,6 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller;
+namespace Mlangeni\Machinjiri\Installer;
 
 /**
  * Manages installation steps and provides rollback capability

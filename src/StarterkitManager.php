@@ -1,9 +1,10 @@
 <?php
 
-namespace Preciouslyson\MachinjiriInstaller;
+namespace Mlangeni\Machinjiri\Installer;
 use \Exception;
-use Preciouslyson\MachinjiriInstaller\StarterKits\DefaultKit;
-use Preciouslyson\MachinjiriInstaller\StarterKits\Blog;
+use Mlangeni\Machinjiri\Installer\StarterKits\DefaultKit;
+use Mlangeni\Machinjiri\Installer\StarterKits\Blog;
+
 final class StarterkitManager
 {
   public function __construct (private ?string $projectDir = null) {}
