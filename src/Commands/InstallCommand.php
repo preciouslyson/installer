@@ -196,9 +196,6 @@ class InstallCommand extends Command
                 $this->initializeGit($targetDir, $io);
             }
 
-            // Post-installation wizard
-            $this->runPostInstallWizard($targetDir, $io, $noInteraction);
-
             $io->success("Machinjiri installed successfully!");
 
             $summary = new InstallationSummary($targetDir, $projectName, $io);
@@ -287,44 +284,6 @@ class InstallCommand extends Command
         $process = new Process(['git', 'commit', '-m', 'Initial commit from Machinjiri installer'], $targetDir);
         $process->run();
         $io->success("Git repository initialized with initial commit.");
-    }
-
-    private function runPostInstallWizard(string $targetDir, SymfonyStyle $io, bool $noInteraction): void
-    {
-        if ($noInteraction) {
-            return;
-        }
-    
-        $io->section('Post-installation setup');
-        $wantsSetup = $io->confirm('Would you like to perform some post-installation setup?', true);
-        if (!$wantsSetup) {
-            return;
-        }
-        if ($io->confirm('Run database migrations?', false)) {
-            $artisan = $targetDir . '/artisan';
-            if (file_exists($artisan)) {
-                $process = new Process(['php', $artisan, 'migration:migrate'], $targetDir);
-                $process->setTimeout(300);
-                $process->run(function ($type, $buffer) use ($io) {
-                    $io->write($buffer);
-                });
-                if ($process->isSuccessful()) {
-                    $io->success("Migrations completed.");
-                } else {
-                    $io->error("Migrations failed: " . $process->getErrorOutput());
-                }
-            } else {
-                $io->warning("Artisan not found. Skipping migrations.");
-            }
-        }
-    
-        if ($io->confirm('Start the built-in PHP development server now?', false)) {
-            $io->writeln("Starting server with <comment>php artisan server:start</comment>");
-            $io->writeln("Press Ctrl+C to stop the server.");
-            $process = new Process(['php', 'artisan', 'server:start'], $targetDir);
-            $process->setTty(true);
-            $process->run();
-        }
     }
 
     private function removeDirectory(string $dir): void

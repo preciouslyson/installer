@@ -1,0 +1,8 @@
+/vendor/
+/node_modules/
+/.env
+/storage/*
+!important/storage/.gitignore
+/.idea
+/.vscode
+/.DS_Store

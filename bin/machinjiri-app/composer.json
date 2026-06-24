@@ -1,0 +1,31 @@
+{
+    "name": "machinjiri/machinjiri-app",
+    "description": "A Machinjiri Framework application",
+    "type": "project",
+    "require": {
+        "php": "^8.4",
+        "machinjiri/framework": "^2.1.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mlangeni\\Machinjiri\\App\\": "app/",
+            "Mlangeni\\Machinjiri\\Database\\": "database/"
+        },
+        "files": [
+            "bootstrap/helpers.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Mlangeni\\Machinjiri\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

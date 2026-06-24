@@ -19,7 +19,7 @@ Add to your existing project's composer.json:
 ```json
 {
     "require-dev": {
-        "preciouslyson/installer": "^1.2.1"
+        "preciouslyson/installer": "^1.2.8"
     }
 }
 ```
@@ -133,7 +133,7 @@ Key Features
 
 The installer automatically checks:
 
-· PHP version (≥ 8.0)
+· PHP version (≥ 8.2)
 · Required extensions (json, mbstring, openssl)
 · Composer availability
 · Directory permissions
