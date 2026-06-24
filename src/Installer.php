@@ -520,6 +520,9 @@ ENV;
         $write($this->projectDir . '/config/queue.php', ConfigFiles::queueConfigFileTemplate());
         $write($this->projectDir . '/config/routing.php', ConfigFiles::routingConfigFileTemplate());
         $write($this->projectDir . '/config/filesystem.php', ConfigFiles::fileSystemConfigurationTemplate());
+        $write($this->projectDir . '/config/auth.php', ConfigFiles::authConfigurationTemplate());
+        $write($this->projectDir . '/config/oauth.php', ConfigFiles::OAuthConfigurationTemplate());
+        $write($this->projectDir . '/config/ldap.php', ConfigFiles::ldapConfigurationTemplate());
         
         /* Core Service Providers */
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', ServiceProviders::AppServiceProviderTemplate());

@@ -4,6 +4,440 @@ namespace Mlangeni\Machinjiri\Installer\Stubs;
 
 class ConfigFiles {
 
+    public static function authConfigurationTemplate() { return <<<'PHP'
+<?php
+
+/**
+ * Configuration file for Authentication Manager (AuthManager).
+ * 
+ * This file defines the settings for Authentication
+ * 
+ */
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Default Authentication Guard - (session, token, jwt) default => session
+    |--------------------------------------------------------------------------
+    |
+    | The default guard to use for authentication.
+    |
+    */
+    'default' => 'session',
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Guards Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Make sure you properly configure your guard if set to default above
+    | or will throw an error
+    |
+    */
+    'guards' => [
+        'session' => [
+            /*
+            |--------------------------------------------------------------------------
+            | Session Guard
+            |--------------------------------------------------------------------------
+            | 
+            */
+            'driver' => 'session',
+            /*
+            |--------------------------------------------------------------------------
+            | SessionGuard provider configuration
+            |--------------------------------------------------------------------------
+            | The provider is the core for the authentication guard
+            | The provider has (database, ldap, oauth) set your provider driver for 
+            | your session guard
+            | The model is the Model used for crud operations and authentication
+            |
+            */
+            'provider' => [
+                /* Can use database, ldap and OAuth */
+                'driver' => 'database',
+                /* Define your custom model */
+                'model' => \Mlangeni\Machinjiri\Facade\Authentication\Models\User::class,
+            ],
+            /*
+            |--------------------------------------------------------------------------
+            | Remember Token Expiration
+            |--------------------------------------------------------------------------
+            | Set expiration time in days. Default is 7
+            */
+            'remember_expiration' => 7 * 24 * 60 * 60,
+        ],
+        // add guards here.. (eg token, jwt)
+    ],
+];
+PHP;
+    }
+    
+    public static function OAuthConfigurationTemplate() { return <<<'PHP'
+<?php
+
+/**
+ * Configuration file for Third-Party Authentication (ThirdPartyAuth).
+ * 
+ * This file defines the settings for OAuth providers (Google, GitHub, Facebook, etc.)
+ * and how user data is managed locally.
+ * 
+ */
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Redirect URI
+    |--------------------------------------------------------------------------
+    |
+    | The URI where the OAuth provider will redirect after authentication.
+    | This should match the callback URL registered with each provider.
+    | Typically, you set this to your application's URL + '/auth/callback'.
+    |
+    */
+    'redirect_uri' => env('APP_URL', 'http://localhost:3000') . '/auth/callback',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Session Key Prefix
+    |--------------------------------------------------------------------------
+    |
+    | Prefix used for session keys when storing temporary authentication data.
+    |
+    */
+    'session_key_prefix' => 'thirdparty_auth_',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Database Tables
+    |--------------------------------------------------------------------------
+    |
+    | Names of the tables used to store user accounts, provider connections,
+    | and OAuth tokens. You can customize these to match your database schema.
+    |
+    */
+    'user_table'       => 'users',
+    'provider_table'   => 'user_providers',
+    'token_table'      => 'user_tokens',
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Management
+    |--------------------------------------------------------------------------
+    |
+    | - auto_create_users: Automatically create a local user account if none
+    |   exists for the authenticated provider user.
+    | - auto_sync_profile: Update local user data (name, avatar) from the
+    |   provider on each login.
+    | - default_role: The role assigned to newly created users.
+    |
+    */
+    'auto_create_users'   => true,
+    'auto_sync_profile'   => true,
+    'default_role'        => 'user',
+
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth Scopes
+    |--------------------------------------------------------------------------
+    |
+    | Define the permission scopes requested from each provider.
+    | These are merged with the default scopes defined in the class.
+    | You can override per provider by specifying a custom array.
+    |
+    */
+    'scopes' => [
+        'google'     => ['email', 'profile'],
+        'github'     => ['user:email'],
+        'facebook'   => ['email', 'public_profile'],
+        'twitter'    => ['users.read', 'tweet.read'],
+        'yahoo'      => ['profile', 'email'],
+        'linkedin'   => ['r_liteprofile', 'r_emailaddress'],
+        'microsoft'  => ['User.Read', 'email'],
+        'instagram'  => ['user_profile', 'user_media'],
+        'gitlab'     => ['read_user'],
+        'bitbucket'  => ['account', 'email'],
+        'amazon'     => ['profile'],
+        'slack'      => ['users:read', 'users:read.email'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth Endpoints
+    |--------------------------------------------------------------------------
+    |
+    | The authorization, token, and revoke endpoints for each provider.
+    | Usually you do not need to change these, but you can override any
+    | endpoint here if a provider changes its API.
+    |
+    | The class provides default endpoints; you only need to specify
+    | the ones you want to override.
+    |
+    */
+    'endpoints' => [
+        // Example override (uncomment and modify as needed):
+        // 'google' => [
+        //     'authorization' => 'https://accounts.google.com/o/oauth2/auth',
+        //     'token'         => 'https://oauth2.googleapis.com/token',
+        //     'revoke'        => 'https://oauth2.googleapis.com/revoke',
+        // ],
+        'github' => [
+            'authorization' => 'https://github.com/login/oauth/authorize',
+            'token' => 'https://github.com/login/oauth/access_token',
+            'revoke' => null
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | User Info Endpoints
+    |--------------------------------------------------------------------------
+    |
+    | The API endpoints used to fetch user profile data after obtaining
+    | an access token. You can override any endpoint here.
+    |
+    */
+    'user_info_endpoints' => [
+        // Example override:
+        // 'facebook' => 'https://graph.facebook.com/v12.0/me?fields=id,name,email,picture.type(large)',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Provider Credentials (Environment Variables)
+    |--------------------------------------------------------------------------
+    |
+    | For each provider you wish to enable, you must set the following
+    | environment variables (in your .env file or system environment):
+    |
+    | GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    | GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET
+    | FACEBOOK_CLIENT_ID, FACEBOOK_CLIENT_SECRET
+    | TWITTER_CLIENT_ID, TWITTER_CLIENT_SECRET
+    | YAHOO_CLIENT_ID, YAHOO_CLIENT_SECRET
+    | LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET
+    | MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET
+    | INSTAGRAM_CLIENT_ID, INSTAGRAM_CLIENT_SECRET
+    | GITLAB_CLIENT_ID, GITLAB_CLIENT_SECRET
+    | BITBUCKET_CLIENT_ID, BITBUCKET_CLIENT_SECRET
+    | AMAZON_CLIENT_ID, AMAZON_CLIENT_SECRET
+    | SLACK_CLIENT_ID, SLACK_CLIENT_SECRET
+    |
+    | Only providers with both ID and secret set will be enabled.
+    |
+    */
+];
+PHP;
+    }
+    
+    public static function ldapConfigurationTemplate() { return <<<'PHP'
+<?php
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Default LDAP Connection
+    |--------------------------------------------------------------------------
+    |
+    | The default connection to use when no specific connection is requested.
+    |
+    */
+    'default' => env('LDAP_DEFAULT', 'primary'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | LDAP Connections
+    |--------------------------------------------------------------------------
+    |
+    | Each connection can be configured with its own set of parameters.
+    | You can define multiple connections for different LDAP servers.
+    |
+    */
+    'connections' => [
+
+        'primary' => [
+            /*
+            | The LDAP server host(s). You can specify multiple for failover.
+            | The first reachable host will be used.
+            */
+            'hosts' => explode(',', env('LDAP_HOSTS', 'ldap.forumsys.com')),
+
+            /*
+            | LDAP port (389 for standard, 636 for LDAPS)
+            */
+            'port' => env('LDAP_PORT', 389),
+
+            /*
+            | Base DN for searches (e.g., dc=example,dc=com)
+            */
+            'base_dn' => env('LDAP_BASE_DN', 'dc=example,dc=com'),
+
+            /*
+            | Use SSL (ldaps:// protocol). If true, port usually 636.
+            */
+            'use_ssl' => env('LDAP_SSL', false),
+
+            /*
+            | Use TLS (StartTLS) after connecting.
+            | If both use_ssl and use_tls are true, use_ssl takes precedence.
+            */
+            'use_tls' => env('LDAP_TLS', false),
+
+            /*
+            | Automatically bind with the service account after connecting.
+            | If set to false, you must call bind() manually before queries.
+            */
+            'auto_bind' => env('LDAP_AUTO_BIND', true),
+
+            /*
+            | Service account credentials for binding.
+            | If empty, anonymous bind will be attempted.
+            */
+            'username' => env('LDAP_USERNAME', 'cn=read-only-admin,dc=example,dc=com'),
+            'password' => env('LDAP_PASSWORD', 'password'),
+
+            /*
+            | LDAP options (see ldap_set_option)
+            | Common options:
+            |   LDAP_OPT_PROTOCOL_VERSION => 3
+            |   LDAP_OPT_REFERRALS        => 0
+            |   LDAP_OPT_NETWORK_TIMEOUT  => 5  (seconds)
+            */
+            'options' => [
+                LDAP_OPT_PROTOCOL_VERSION => 3,
+                LDAP_OPT_REFERRALS        => 0,
+                LDAP_OPT_NETWORK_TIMEOUT  => env('LDAP_NETWORK_TIMEOUT', 5),
+            ],
+
+            /*
+            | Connection timeout in seconds.
+            | This is used in the ldap_connect call via network timeout option above.
+            */
+            'timeout' => env('LDAP_TIMEOUT', 5),
+
+            /*
+            | Additional configuration for the LDAP User Provider
+            | (if you are using this component for authentication)
+            */
+            'provider' => [
+                /*
+                | The attribute used as the local username.
+                | Usually 'uid' or 'cn' or 'sAMAccountName' for Active Directory.
+                */
+                'username_attribute' => env('LDAP_USERNAME_ATTR', 'uid'),
+
+                /*
+                | Fields to search when looking up a user by credentials.
+                | These will be tried in order until a match is found.
+                */
+                'search_fields' => explode(',', env('LDAP_SEARCH_FIELDS', 'uid,mail')),
+
+                /*
+                | Mapping of local model attributes to LDAP attributes.
+                | The local attribute is the key, the LDAP attribute is the value.
+                */
+                'sync_attributes' => [
+                    'name'  => 'cn',
+                    'email' => 'mail',
+                    'phone' => 'telephoneNumber',
+                ],
+
+                /*
+                | Cache TTL in seconds for LDAP user lookups.
+                | Set to 0 to disable caching.
+                */
+                'cache_ttl' => env('LDAP_CACHE_TTL', 300),
+            ],
+        ],
+
+        /*
+        | An example Active Directory connection
+        */
+        'ad' => [
+            'hosts' => explode(',', env('AD_HOSTS', 'dc1.example.com,dc2.example.com')),
+            'port' => env('AD_PORT', 389),
+            'base_dn' => env('AD_BASE_DN', 'dc=example,dc=com'),
+            'use_ssl' => env('AD_SSL', false),
+            'use_tls' => env('AD_TLS', false),
+            'auto_bind' => env('AD_AUTO_BIND', true),
+            'username' => env('AD_USERNAME', 'cn=Administrator,cn=Users,dc=example,dc=com'),
+            'password' => env('AD_PASSWORD', 'secret'),
+            'options' => [
+                "LDAP_OPT_PROTOCOL_VERSION" => 3,
+                "LDAP_OPT_REFERRALS"        => 0,
+                "LDAP_OPT_NETWORK_TIMEOUT"  => 5,
+            ],
+            'provider' => [
+                'username_attribute' => 'sAMAccountName',
+                'search_fields' => ['sAMAccountName', 'mail', 'userPrincipalName'],
+                'sync_attributes' => [
+                    'name'  => 'cn',
+                    'email' => 'mail',
+                    'phone' => 'telephoneNumber',
+                ],
+                'cache_ttl' => 600,
+            ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Global Caching & Logging Settings
+    |--------------------------------------------------------------------------
+    */
+    'cache' => [
+        /*
+        | Whether to enable caching for LDAP queries by default.
+        | Individual queries can override this.
+        */
+        'enabled' => env('LDAP_CACHE_ENABLED', true),
+
+        /*
+        | Default cache TTL in seconds.
+        */
+        'ttl' => env('LDAP_CACHE_TTL_DEFAULT', 300),
+    ],
+
+    /*
+    | Logging configuration
+    | (uses the framework's Logger)
+    */
+    'logging' => [
+        /*
+        | Log level for LDAP operations: debug, info, warning, error, etc.
+        */
+        'level' => env('LDAP_LOG_LEVEL', 'info'),
+
+        /*
+        | Log channel to use (if using a multi-channel logger).
+        */
+        'channel' => env('LDAP_LOG_CHANNEL', 'ldap'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Advanced Options
+    |--------------------------------------------------------------------------
+    */
+    'advanced' => [
+        /*
+        | Enable stampede protection for cache (prevents cache stampedes).
+        | Requires CacheManager with stampede protection.
+        */
+        'stampede_protection' => env('LDAP_STAMPEDE_PROTECTION', true),
+
+        /*
+        | Circuit breaker settings (if integrated with a circuit breaker).
+        */
+        'circuit_breaker' => [
+            'enabled' => env('LDAP_CIRCUIT_BREAKER', false),
+            'failures_threshold' => 5,
+            'timeout' => 30,
+        ],
+    ],
+];
+PHP;
+    }
+
     public static function fileSystemConfigurationTemplate() { return <<<'PHP'
 <?php
 /**

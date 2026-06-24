@@ -266,6 +266,9 @@ use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
 use Mlangeni\Machinjiri\Core\Transport\Mail\MailManager;
 use Mlangeni\Machinjiri\Core\Security\Tokens\CSRFToken;
 use Mlangeni\Machinjiri\Core\Routing\RoutingConfig;
+use Mlangeni\Machinjiri\Core\Security\Hashing\Hasher;
+use Mlangeni\Machinjiri\Core\Security\Encryption\Bangwe;
+use Mlangeni\Machinjiri\Core\Authentication\ThirdParty\ThirdPartyAuth;
 
 
 class AppServiceProvider extends ServiceProvider
@@ -289,7 +292,9 @@ class AppServiceProvider extends ServiceProvider
         $this->singleton(Cookie::class);
 
         $this->singleton(AuthManager::class, function ($app) {
-            return new AuthManager($app, $app->configurations['auth']);
+            $config = $app->configurations['auth'] ?? false;
+            if (!$config) throw new MachinjiriException("App Service Error: auth config not found");
+            return new AuthManager($app, $config);
         });
         
         // Register Debugger
@@ -336,12 +341,29 @@ class AppServiceProvider extends ServiceProvider
             return is_file($config) ? require $config : null;
         });
 
+        $this->singleton(Hasher::class, function ($app) {
+            return new Hasher();
+        });
+
+        $this->singleton(Bangwe::class, function ($app) {
+            return new Bangwe($app);
+        });
+
+        $this->singleton(ThirdPartyAuth::class, function ($app) {
+            return new ThirdPartyAuth($app->configurations['oauth']);
+        });
+
+        $this->singleton('ldap.manager', function ($app) {
+            return new  \Mlangeni\Machinjiri\Core\Components\LDAP\Manager($app->configurations['ldap']);
+        });
+
         // Register aliases for easier access
         $this->aliasMany([
             'request' => HttpRequest::class,
             'response' => HttpResponse::class,
-            'session' => Session::class,
-            'cookie' => Cookie::class,
+            'auth.session' => Session::class,
+            'auth.cookie' => Cookie::class,
+            'auth.thirdparty' => ThirdPartyAuth::class,
             'debugger' => Debugger::class,
             'events' => EventListener::class,
             'fs.adapter.local' => LocalAdapter::class,
@@ -351,6 +373,9 @@ class AppServiceProvider extends ServiceProvider
             'mail.manager' => MailManager::class,
             'logger' => Logger::class,
             'routing.config' => RoutingConfig::class,
+            'auth.manager' => AuthManager::class,
+            'security.hasher' => Hasher::class,
+            'security.bangwe' => Bangwe::class,
         ]);
 
     }
@@ -369,6 +394,9 @@ class AppServiceProvider extends ServiceProvider
             $this->mergeConfigFrom($configDir . 'cache.php', 'cache');
             $this->mergeConfigFrom($configDir . 'mail.php', 'mail');
             $this->mergeConfigFrom($configDir . 'queue.php', 'queue');
+            $this->mergeConfigFrom($configDir . 'auth.php', 'auth');
+            $this->mergeConfigFrom($configDir . 'oauth.php', 'oauth');
+            $this->mergeConfigFrom($configDir . 'ldap.php', 'ldap');
         }
 
     }
