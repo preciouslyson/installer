@@ -44,6 +44,7 @@ class InstallCommand extends Command
             ->addOption('git', null, InputOption::VALUE_NONE, 'Initialize Git repository and make initial commit')
             ->addOption('starter', null, InputOption::VALUE_REQUIRED, 'Starter kit (default)')
             ->addOption('prefer-cache', null, InputOption::VALUE_NONE, 'Use Composer cache if available')
+            ->addOption('database', null, InputOption::VALUE_REQUIRED, 'Database to use')
             ->addOption('keep-on-error', null, InputOption::VALUE_NONE, 'Do not delete partially created project on failure');
     }
 
@@ -84,6 +85,15 @@ class InstallCommand extends Command
         } elseif (!$version) {
             $version = $this->resolveFrameworkVersion('*');
         }
+
+        // Database
+        $database = $input->getOption('database');
+        if (!$database && !$noInteraction) {
+            $database = $io->choice('What database would you prefer to use?', ['sqlite' => 'SQLite Database', 'mysql' => 'MYSQL Database'], 'sqlite');
+        } elseif (!$database) {
+            $database = 'sqlite';
+        }
+
 
         // Dev/No-dev
         $installDev = null;
@@ -162,6 +172,7 @@ class InstallCommand extends Command
             'verbose' => $isVerbose,
             'starter' => $starter,
             'prefer-cache' => $preferCache,
+            'database' => $database,
         ];
 
         try {

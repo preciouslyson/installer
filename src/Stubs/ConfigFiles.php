@@ -298,9 +298,9 @@ return [
             /*
             | LDAP options (see ldap_set_option)
             | Common options:
-            |   LDAP_OPT_PROTOCOL_VERSION => 3
-            |   LDAP_OPT_REFERRALS        => 0
-            |   LDAP_OPT_NETWORK_TIMEOUT  => 5  (seconds)
+            |   "LDAP_OPT_PROTOCOL_VERSION" => 3
+            |   "LDAP_OPT_REFERRALS"        => 0
+            |   "LDAP_OPT_NETWORK_TIMEOUT"  => 5  (seconds)
             */
             'options' => [
                 LDAP_OPT_PROTOCOL_VERSION => 3,
