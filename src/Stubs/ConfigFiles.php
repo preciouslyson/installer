@@ -303,9 +303,9 @@ return [
             |   "LDAP_OPT_NETWORK_TIMEOUT"  => 5  (seconds)
             */
             'options' => [
-                LDAP_OPT_PROTOCOL_VERSION => 3,
-                LDAP_OPT_REFERRALS        => 0,
-                LDAP_OPT_NETWORK_TIMEOUT  => env('LDAP_NETWORK_TIMEOUT', 5),
+                "LDAP_OPT_PROTOCOL_VERSION" => 3,
+                "LDAP_OPT_REFERRALS"        => 0,
+                "LDAP_OPT_NETWORK_TIMEOUT"  => env('LDAP_NETWORK_TIMEOUT', 5),
             ],
 
             /*
@@ -599,20 +599,18 @@ return [
 PHP;
   }
 
-    public static function databaseConfigTemplate() { return <<<'PHP'
+    public static function databaseConfigTemplate(string $database) { 
+        return match (strtolower($database)) {
+            "sqlite" => <<<'PHP'
 <?php
 
 /*
   |--------------------------------------------------------------------------
-  | Database Configuration
+  | SQLite Database Configuration
   |--------------------------------------------------------------------------
-  |
-  | Here you may specify which database connection the application should
-  | use. The default is SQLite, but other connections are available.
-  |
   */
 return [
-  'default' => env('DB_CONNECTION', 'sqlite'),
+  'default' => 'sqlite',
   'prefetch' => env('DB_PREFETCH', false),
   'connections' => [
     'sqlite' => [
@@ -623,7 +621,33 @@ return [
     ],
   ]
 ];
-PHP;
+PHP,
+            "mysql" => <<<'PHP'
+<?php
+
+/*
+  |--------------------------------------------------------------------------
+  | MYSQL Database Configuration
+  |--------------------------------------------------------------------------
+  */
+return [
+  'default' => 'mysql',
+  'prefetch' => env('DB_PREFETCH', false),
+  'connections' => [
+    'mysql' => [
+        'driver' => 'mysql',
+        'host' => env('DB_HOST', null),
+        'username' => env('DB_USERNAME', null),
+        'password' => env('DB_PASSWORD', null),
+        'database' => env('DB_DATABASE', null),
+        'port' => env('DB_PORT', 3306),
+        'charset' => env('DB_DATABASE', 'utf-8'),
+    ],
+  ]
+];
+PHP,   
+        };
+
   }
 
     public static function mailConfigTemplate () { return <<<'PHP'
@@ -822,20 +846,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Middleware Configuration
+    | JSON Web Tokens Configuration
     |--------------------------------------------------------------------------
     |
-    | Global middleware that runs on every request.
-    |
     */
-    'middleware' => [
-        'global' => [
-        ],
-        'web' => [
-        ],
-        'api' => [
-        ],
-    ],
     'encryption_key' => env('APP_KEY', ''),
     'encryption_cipher' => env('APP_CIPHER', 'aes-256-gcm'),
     'jwt_secret' => env('JWT_SECRET', ''),

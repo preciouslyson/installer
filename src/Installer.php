@@ -53,7 +53,7 @@ class Installer
             $this->progress(5, 'Creating project files...');
             $this->createFiles();
             $this->progress(6, 'Writing composer.json...');
-            $this->writeComposerJson($projectName);
+            $this->writeComposerJson($projectName, $options['description']);
             $this->progress(7, 'Writing environment configuration...');
             $this->writeEnvironmentFile();
             $this->progress(8, 'Installing dependencies via Composer...');
@@ -75,7 +75,7 @@ class Installer
     private function checkRequirements(): void
     {
         try {
-            $this->validator->validatePhpVersion('8.0.0');
+            $this->validator->validatePhpVersion('8.2.0');
             $this->validator->validateExtensions(['json', 'mbstring', 'openssl']);
             
             if (!$this->composer) {
@@ -165,7 +165,7 @@ class Installer
           'app',
           'app/Controllers',
           'app/Middleware',
-          'app/Model',
+          'app/Models',
           'app/Providers',
           'app/Queue/Drivers',
           'tests/Unit',
@@ -187,19 +187,19 @@ class Installer
         }
     }
 
-    private function writeComposerJson(string $projectName): void
+    private function writeComposerJson(string $projectName, string $description): void
     {
         $version = $this->options['version'] ?? '*';
         
-        $vendor = 'machinjiri';
+        $vendor = strtolower(str_replace([' ', '-', '_', '.'], '', $this->options['company'] ?? 'machinjiri'));
         $packageName = strtolower(str_replace(' ', '-', $projectName));
         
         $composerJson = [
             'name' => $vendor . '/' . $packageName,
-            'description' => 'A Machinjiri Framework application',
+            'description' => $description,
             'type' => 'project',
             'require' => [
-                'php' => '^8.4',
+                'php' => '^' . VersionManager::RECOMMENDED_PHP_VERSION,
                 'machinjiri/framework' => $version,
             ],
             'require-dev' => [
@@ -515,7 +515,7 @@ ENV;
         $write($this->projectDir . '/config/providers.php', ConfigFiles::providersTemplate());
         $write($this->projectDir . '/config/app.php', ConfigFiles::appConfigTemplate());
         $write($this->projectDir . '/config/mail.php', ConfigFiles::mailConfigTemplate());
-        $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate());
+        $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate($this->options['database']));
         $write($this->projectDir . '/config/cache.php', ConfigFiles::cacheConfigTemplate());
         $write($this->projectDir . '/config/queue.php', ConfigFiles::queueConfigFileTemplate());
         $write($this->projectDir . '/config/routing.php', ConfigFiles::routingConfigFileTemplate());

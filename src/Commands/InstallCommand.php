@@ -13,6 +13,8 @@ use Symfony\Component\Process\Process;
 use Mlangeni\Machinjiri\Installer\Installer;
 use Mlangeni\Machinjiri\Installer\InstallationSummary;
 use Mlangeni\Machinjiri\Installer\StarterkitManager;
+use Mlangeni\Machinjiri\Installer\VersionManager;
+
 
 class InstallCommand extends Command
 {
@@ -45,6 +47,8 @@ class InstallCommand extends Command
             ->addOption('starter', null, InputOption::VALUE_REQUIRED, 'Starter kit (default)')
             ->addOption('prefer-cache', null, InputOption::VALUE_NONE, 'Use Composer cache if available')
             ->addOption('database', null, InputOption::VALUE_REQUIRED, 'Database to use')
+            ->addOption('description', null, InputOption::VALUE_REQUIRED, 'Project description')
+            ->addOption('company', null, InputOption::VALUE_REQUIRED, 'Company/Organization name')
             ->addOption('keep-on-error', null, InputOption::VALUE_NONE, 'Do not delete partially created project on failure');
     }
 
@@ -70,10 +74,33 @@ class InstallCommand extends Command
                 if (!preg_match('/^[a-zA-Z0-9._-]+$/', $value)) {
                     throw new \RuntimeException('Project name may only contain letters, numbers, dots, underscores, and hyphens.');
                 }
+                if (strlen($value) < 3) {
+                    throw new \RuntimeException('Enter a valid project name');
+                }
                 return $value;
             });
         } elseif (!$projectName) {
             $projectName = 'machinjiri-app';
+        }
+
+        $description = $input->getOption('description');
+        if (!$description && !$noInteraction) {
+            $description = $io->ask('Description. Describe your project', '', function ($value) {
+                if (empty(trim($value))) {
+                    throw new \RuntimeException('Project description cannot be empty.');
+                }
+                return $value;
+            });
+        }
+
+        $company = $input->getOption('company');
+        if (!$company && !$noInteraction) {
+            $company = $io->ask('Company/Organization name:', '', function ($value) {
+                if (empty(trim($value))) {
+                    throw new \RuntimeException('Company/Organization cannot be empty.');
+                }
+                return $value;
+            });
         }
 
         $version = $input->getOption('m-version');
@@ -82,8 +109,13 @@ class InstallCommand extends Command
             if (empty($version) || $version === '*') {
                 $version = $this->resolveFrameworkVersion('*');
             }
-        } elseif (!$version) {
-            $version = $this->resolveFrameworkVersion('*');
+            $installable = VersionManager::installable();
+            if (!in_array($version, $installable)) {
+                $installable = $installable['installable'];
+                $userChoice = $io->choice('Version selected is currently not supported, Choose version below: ', $installable, 0);
+                if (!in_array($userChoice, $installable)) throw new \RuntimeException("Invalid version selected!");
+                $version = $userChoice;
+            }
         }
 
         // Database
@@ -143,14 +175,16 @@ class InstallCommand extends Command
         }
 
         // Installation summary
-        $io->section('Installation settings');
+        $io->section('Installation Settings');
         $io->listing([
-            "Project name: <info>{$projectName}</info>",
+            "Project Name: <info>{$projectName}</info>",
+            "Project Description: <info>{$description}</info>",
+            "Company/Organization: <info>{$company}</info>",
             "Machinjiri version: <info>{$version}</info>",
-            "Development dependencies: <info>" . ($installDev ? 'Yes' : 'No') . "</info>",
+            "Install dev dependencies: <info>" . ($installDev ? 'Yes' : 'No') . "</info>",
             "Starter kit: <info>{$starter}</info>",
-            "Git init: <info>" . ($initGit ? 'Yes' : 'No') . "</info>",
-            "Composer cache: <info>" . ($preferCache ? 'Prefer cache' : 'Default') . "</info>",
+            "Initialize Git: <info>" . ($initGit ? 'Yes' : 'No') . "</info>",
+            "Composer cache: <info>" . ($preferCache ? 'Prefer Cache' : 'Default') . "</info>",
             "Target directory: <info>{$targetDir}</info>",
         ]);
 
@@ -173,6 +207,8 @@ class InstallCommand extends Command
             'starter' => $starter,
             'prefer-cache' => $preferCache,
             'database' => $database,
+            'description' => $description,
+            'company' => $company,
         ];
 
         try {
@@ -181,7 +217,7 @@ class InstallCommand extends Command
                 $io->newLine();
             }
 
-            $io->writeln("\n<comment>Installing Machinjiri...</comment>");
+            $io->writeln("\n<comment>Installing Machinjiri. Please wait..</comment>");
             $spinner = $this->createSpinner($output);
             $spinner->start();
 
@@ -231,9 +267,12 @@ class InstallCommand extends Command
     {
         $io->section('Environment check');
 
+        // Installer version
+        $io->writeln("Installer version: <info>" . VersionManager::INSTALLER_VERSION . "</info>");
+
         // PHP version
-        if (version_compare(PHP_VERSION, '8.2.0', '<')) {
-            $io->error("Machinjiri requires PHP 8.2.0 or higher. You have " . PHP_VERSION);
+        if (version_compare(PHP_VERSION, VersionManager::RECOMMENDED_PHP_VERSION, '<')) {
+            $io->error("Machinjiri requires PHP" . VersionManager::RECOMMENDED_PHP_VERSION . " or higher. You have " . PHP_VERSION);
             return false;
         }
         $io->writeln("PHP version: <info>" . PHP_VERSION . "</info>");
@@ -342,9 +381,14 @@ ASCII;
         
         // Fetch latest stable version from Packagist
         $latest = $this->fetchLatestFrameworkVersion();
+        $minimum = VersionManager::installable()['minimum'];
         if ($latest === null) {
-            return '*';
+            return $minimum;
         }
+
+        $minimum = (int) str_replace('^', '', $minimum);
+
+        if ($latest < $minimum) throw new \RuntimeException("Minimum installable version error");
         
         return '^' . $latest;
     }

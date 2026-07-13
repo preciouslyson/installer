@@ -32,57 +32,6 @@ class InstallationSummary
             'PHP Version' => PHP_VERSION,
             'Installation Date' => date('Y-m-d H:i:s'),
         ];
-
-        // Count created files and directories
-        if (is_dir($this->projectDir)) {
-            $this->details['Directories Created'] = $this->countDirectories($this->projectDir);
-            $this->details['Files Created'] = $this->countFiles($this->projectDir);
-        }
-    }
-
-    /**
-     * Count directories recursively
-     * 
-     * @param string $dir
-     * @return int
-     */
-    private function countDirectories(string $dir): int
-    {
-        $count = 0;
-        $items = array_diff(scandir($dir), ['.', '..']);
-
-        foreach ($items as $item) {
-            $path = $dir . DIRECTORY_SEPARATOR . $item;
-            if (is_dir($path)) {
-                $count++;
-                $count += $this->countDirectories($path);
-            }
-        }
-
-        return $count;
-    }
-
-    /**
-     * Count files recursively
-     * 
-     * @param string $dir
-     * @return int
-     */
-    private function countFiles(string $dir): int
-    {
-        $count = 0;
-        $items = array_diff(scandir($dir), ['.', '..']);
-
-        foreach ($items as $item) {
-            $path = $dir . DIRECTORY_SEPARATOR . $item;
-            if (is_file($path)) {
-                $count++;
-            } elseif (is_dir($path)) {
-                $count += $this->countFiles($path);
-            }
-        }
-
-        return $count;
     }
 
     /**
@@ -137,7 +86,6 @@ class InstallationSummary
         $this->io->writeln('<fg=yellow>Security:</> The .env file has been created with restricted permissions. Keep it safe!');
         $this->io->writeln('<fg=yellow>Environment:</> Update .env file with your database and mail credentials.');
         $this->io->writeln('<fg=yellow>Dependencies:</> All Composer dependencies have been installed automatically.');
-        $this->io->writeln('<fg=yellow>Migrations:</> Database migration files are in database/migrations/.');
 
         $this->io->newLine();
     }
