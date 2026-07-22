@@ -1,273 +1,213 @@
-Machinjiri Installer
+# Machinjiri Installer
 
-A professional Composer plugin and CLI tool for creating new Machinjiri PHP framework projects quickly and efficiently.
+A Composer plugin and CLI installer for scaffolding new Machinjiri PHP applications quickly and consistently.
 
-Installation
+## What’s new
 
-Method 1: Global Installation (Recommended)
+The installer now supports a more complete project setup experience:
 
-Install the installer globally for creating projects anywhere:
+- interactive project creation prompts
+- validation for PHP, Composer, extensions, disk space, and writable directories
+- dry-run support for previewing changes
+- starter kit selection (`default` and `blog`)
+- database selection (`sqlite` and `mysql`)
+- optional Git initialization
+- automatic `.env` generation with secure permissions
+- installation logging and post-install summaries
+
+## Requirements
+
+Before running the installer, make sure your environment meets these requirements:
+
+- PHP 8.3 or newer
+- Composer 2.x
+- Required PHP extensions: `json`, `mbstring`, `openssl`, `zip`, `pdo`, `tokenizer`, and `ctype`
+
+## Installation
+
+### Global installation (recommended)
 
 ```bash
 composer global require machinjiri/installer
 ```
 
-Method 2: Project Dependency
-
-Add to your existing project's composer.json:
-
-```json
-{
-    "require-dev": {
-        "preciouslyson/installer": "^1.2.8"
-    }
-}
-```
-
-Then run:
+### As a project dependency
 
 ```bash
-composer require-dev machinjiri/installer
+composer require --dev machinjiri/installer
 ```
 
-Quick Start
+## Quick start
 
-After global installation, create a new Machinjiri project:
+Create a new project interactively:
 
 ```bash
 machinjiri create
 ```
 
-Available Commands
-
-machinjiri create
-
-Create a new Machinjiri application.
+Create a project directly from the command line:
 
 ```bash
+machinjiri create my-app
+```
 
-Arguments:
-  name                           Name of the project directory
+You can also use the alias:
+
+```bash
+machinjiri new my-app
+```
+
+## Command options
+
+The `create` command supports the following options:
+
+```bash
+machinjiri create [name] [options]
+```
 
 Options:
-  -f, --force                    Force installation even if the directory already exists
-      --m-version[=VERSION]      Machinjiri version to install [default: "*"]
-      --dev                      Install development dependencies
-      --no-dev                   Skip development dependencies
-      --no-scripts               Skip Composer scripts
-  -n, --no-interaction           Do not ask any interactive question
-  -h, --help                     Display help for the command
-  -q, --quiet                    Do not output any message
-  -V, --version                  Display this application version
-      --ansi                     Force ANSI output
-      --no-ansi                  Disable ANSI output
-  -v|vv|vvv, --verbose           Increase the verbosity of messages
-```
 
-Usage Examples
+- `-f, --force` — overwrite an existing directory if it already exists
+- `--m-version=VERSION` — install a specific Machinjiri framework version
+- `--dev` — include development dependencies
+- `--no-dev` — skip development dependencies
+- `--no-scripts` — skip Composer scripts during install
+- `--dry-run` — preview the installation without creating files
+- `-n, --no-interaction` — skip prompts and use defaults
+- `--git` — initialize a Git repository and make the initial commit
+- `--starter=NAME` — choose a starter kit (`default` or `blog`)
+- `--prefer-cache` — prefer Composer cache when available
+- `--database=sqlite|mysql` — choose the database configuration template
+- `--description=TEXT` — set the project description
+- `--company=NAME` — set the company or organization name
+- `--keep-on-error` — preserve a partially created project if installation fails
+- `-v, --verbose` — show more detailed output
 
-Basic Installation
+## Common examples
+
+### 1. Interactive setup
 
 ```bash
-# Create app in default directory (machinjiri-app/)
 machinjiri create
 ```
 
-Project Structure Created
+### 2. Non-interactive install with SQLite
 
-The installer creates a complete Machinjiri application structure:
-
+```bash
+machinjiri create my-app --no-interaction --database=sqlite --starter=default
 ```
+
+### 3. Create a blog starter app
+
+```bash
+machinjiri create my-blog --starter=blog --database=mysql
+```
+
+### 4. Preview installation without creating files
+
+```bash
+machinjiri create my-app --dry-run --verbose
+```
+
+### 5. Overwrite an existing directory
+
+```bash
+machinjiri create my-app --force
+```
+
+## What the installer creates
+
+A typical project scaffold includes:
+
+```text
 your-project/
 ├── app/
-│   ├── Controllers/          # Application controllers
-│   ├── Jobs/                 # Application Jobs
-│   ├── Middleware/           # Custom middleware classes
-│   ├── Queue/                # Queue Drivers
-│   │     └── Drivers/        # Driver Files (Database, Sync, Redis)
-│   ├── Models/               # Data models
-│   ├── Providers/            # Service providers
-│   └── Exceptions/           # Custom exceptions
+│   ├── Controllers/
+│   ├── Middleware/
+│   ├── Models/
+│   └── Providers/
 ├── bootstrap/
-│   ├── app.php/              # Application bootstrap file
-│   └── helpers.php           # Helper functions (API)
+│   ├── app.php
+│   ├── artisan.php
+│   └── helpers.php
 ├── config/
-│   ├── app.php               # Application configuration
-│   ├── database.php          # Database configuration
-│   ├── mail.php              # Mail service configuration
-│   ├── auth.php              # Authentication configuration
-│   └── providers.php         # Service providers list
+│   ├── app.php
+│   ├── database.php
+│   ├── mail.php
+│   └── providers.php
 ├── database/
-│   ├── migrations/           # Database migration files
-│   ├── seeders/              # Database seeder classes
-│   └── factories/            # Model factory classes
-├── resources/
-│   └── views/                # View templates
-│       ├── layouts/          # Layout templates
-│       ├── partials/         # Reusable view fragments
-│       └── pages/            # Page-specific views
-├── routes/
-│   └── web.php               # Web application routes
-├── storage/
-│   ├── cache/                # Cached data files
-│   ├── cookies/              # Cookie storage
-│   ├── logs/                 # Application logs
-│   └── sessions/             # Session files
+│   ├── factories/
+│   ├── migrations/
+│   └── seeders/
 ├── public/
 │   ├── src/
-│   │   ├── css/              # Stylesheets
-│   │   ├── js/               # JavaScript files
-│   │   └── images/           # Image assets
-│   ├── .htaccess             # .htaccess config file
-│   └── index.php             # Application entry point
-├── vendor/                   # Composer dependencies
-├── .env                      # Environment configuration
-├── artisan                   # Console application
-├── composer.json             # Project dependencies
-└── phpunit.xml               # PHPUnit configuration
+│   │   ├── css/
+│   │   └── js/
+│   └── index.php
+├── resources/
+│   └── views/
+├── routes/
+├── storage/
+├── tests/
+├── artisan
+├── composer.json
+├── .env
+└── phpunit.xml
 ```
 
-Key Features
+The installer also generates starter-specific files based on the selected kit and writes the base configuration needed to start developing immediately.
 
-1. Smart Requirements Check
+## Starter kits
 
-The installer automatically checks:
+The installer currently supports:
 
-· PHP version (≥ 8.2)
-· Required extensions (json, mbstring, openssl)
-· Composer availability
-· Directory permissions
+- `default` — a general-purpose starter scaffold
+- `blog` — a blog-oriented starter scaffold
 
-2. Secure Configuration
-
-· Auto-generated 32-byte APP_KEY
-· Secure file permissions (storage: 0775, .env: 0600)
-· .htaccess security headers
-· Protected configuration files
-
-3. Modern CLI Experience
-
-· Colored output
-· Progress indicators
-· Clear error messages
-· Interactive prompts
-· Verbose debugging mode
-
-4. Complete Application Setup
-
-· Composer.json with proper autoloading
-· Environment configuration
-· Service providers
-· Database configuration
-· Testing setup (PHPUnit)
-· Development server ready
-
-Environment Configuration
-
-The installer generates a .env file with sensible defaults:
-
-```env
-# -------------------------------------------------
-#   Application configurations                    |
-# -------------------------------------------------
-APP_NAME="MachinjiriApp"
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost:3000
-APP_KEY=
-APP_CIPHER=aes-256-gcm
-
-# ------------------------------------------------
-# Database Configuration (Sqlite)                |
-# ------------------------------------------------
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-DB_FOREIGN_KEYS=true
-```
-
-Post-Installation Steps
-
-After successful installation:
-
-1. Navigate to your project:
-   ```bash
-   cd myapp
-   ```
-2. Start the development server:
-   ```bash
-   php artisan server:start
-   ```
-3. Visit the welcome page:
-   Open http://localhost:3000 in your browser
-4. Set up database:
-   ```bash
-   # For SQLite (default)
-   touch database/database.sqlite
-   
-   # For MySQL/PostgreSQL, update .env file
-   ```
-5. Run migrations:
-   ```bash
-   php artisan migrate
-   ```
-
-Development Commands
-
-Once your project is created:
+Example:
 
 ```bash
-# Start development server
-php artisan server:start
-
-# Run tests
-php vendor/bin/phpunit
-
-# Create controller
-php artisan make:controller UserController
-
-# Create model with migration
-php artisan make:model User -m
-
-# Run database migrations
-php artisan migrate
-
+machinjiri create my-blog --starter=blog
 ```
 
-Troubleshooting
+## Post-install notes
 
-"Command not found" after global installation
+After a successful install:
 
-Ensure Composer's global bin directory is in your PATH:
+- review the generated `.env` file and adjust any environment values
+- inspect `.installation.log` if you need to debug a failed or unusual install
+- start developing from the generated app skeleton
 
-```bash
-# Linux/macOS
-export PATH="$PATH:$HOME/.composer/vendor/bin"
+## Troubleshooting
 
-# Or add to your shell profile
-echo 'export PATH="$PATH:$HOME/.composer/vendor/bin"' >> ~/.bashrc
-echo 'export PATH="$PATH:$HOME/.composer/vendor/bin"' >> ~/.zshrc
+### Composer is not found
 
-# Windows (Powershell)
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:APPDATA\Composer\vendor\bin", "User")
-```
+Make sure Composer is installed and available in your `PATH`.
 
-"PHP extension missing"
+### Missing PHP extensions
 
-Install required extensions:
+Install the required extensions before retrying:
 
 ```bash
-# Ubuntu/Debian
-sudo apt-get install php8.0-json php8.0-mbstring php8.0-openssl
+# Ubuntu / Debian
+sudo apt-get install php8.3-json php8.3-mbstring php8.3-openssl php8.3-zip
 
-# CentOS/RHEL
+# CentOS / RHEL
 sudo yum install php-json php-mbstring php-openssl
 
-# macOS with Homebrew
-brew install php@8.0
-brew services start php@8.0
+# macOS (Homebrew)
+brew install php
 ```
 
-"Permission denied"
+### Existing directory error
+
+If the target folder already exists, use `--force` to overwrite it:
+
+```bash
+machinjiri create my-app --force
+```
+
+### Permission denied
 
 ```bash
 # Check directory permissions
@@ -278,7 +218,7 @@ sudo chown -R $USER:$USER /path/to/project
 sudo chmod -R 755 /path/to/project/storage
 ```
 
-"Composer install failed"
+### Composer install failed
 
 ```bash
 # Check Composer version
@@ -288,23 +228,24 @@ composer --version
 composer clear-cache
 
 # Try with verbose output
-machinjiri new app -vvv
+machinjiri create my-app -vvv
 ```
 
-For CI/CD Pipelines
+## CI/CD usage
 
 The installer supports non-interactive mode for automation:
 
 ```bash
 # GitLab CI example
 before_script:
-  - composer global require preciouslyson/machinjiri-installer
+  - composer global require machinjiri/installer
   - export PATH="$PATH:$HOME/.config/vendor/bin:$PATH"
-  - machinjiri new ${CI_PROJECT_NAME} --no-interaction --force --no-dev
+  - machinjiri create ${CI_PROJECT_NAME} --no-interaction --force --no-dev
   - cd ${CI_PROJECT_NAME}
   - composer install --no-dev --no-interaction
+```
 
-To contribute to the installer:
+## Contributing
 
 ```bash
 # Clone the repository
@@ -318,19 +259,9 @@ composer install
 composer test
 
 # Test the installer locally
-php bin/machinjiri new test-app
+php bin/machinjiri create test-app
 ```
 
-License
+## License
 
-This installer is part of the Machinjiri framework ecosystem and is released under the MIT License.
-
-Support
-
-· Documentation: Machinjiri Documentation
-· Issues: GitHub Issues
-· Email: precious.lyson@gmail.com
-
----
-
-Happy coding with Machinjiri Framework!
+This package is distributed under the MIT License.

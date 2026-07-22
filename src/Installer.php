@@ -5,6 +5,7 @@ namespace Mlangeni\Machinjiri\Installer;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
 use Symfony\Component\Process\Exception\ProcessFailedException;
+use \RuntimeException;
 use Mlangeni\Machinjiri\Installer\StarterkitManager;
 use Mlangeni\Machinjiri\Installer\Stubs\ConfigFiles;
 use Mlangeni\Machinjiri\Installer\Stubs\ServiceProviders;
@@ -107,7 +108,7 @@ class Installer
     {
         if (is_dir($this->projectDir)) {
             if (!$this->options['force']) {
-                if ($this->options['no-interaction'] ?? false) {
+                if (($this->options['no-interaction'] ?? false)) {
                     throw new \RuntimeException(
                         "Directory {$this->projectDir} already exists. Use --force to overwrite."
                     );
