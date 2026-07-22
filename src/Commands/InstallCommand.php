@@ -10,7 +10,9 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
+use Mlangeni\Machinjiri\Installer\InstallationManager;
 use Mlangeni\Machinjiri\Installer\Installer;
+use Mlangeni\Machinjiri\Installer\InstallerLogger;
 use Mlangeni\Machinjiri\Installer\InstallationSummary;
 use Mlangeni\Machinjiri\Installer\StarterkitManager;
 use Mlangeni\Machinjiri\Installer\VersionManager;
@@ -22,8 +24,6 @@ class InstallCommand extends Command
     protected static $defaultDescription = 'Create a new Machinjiri application';
 
     private bool $bannerDisplayed = false;
-    
-    private ?string $resolvedFrameworkVersion = null;
 
     public function __construct()
     {
@@ -158,6 +158,8 @@ class InstallCommand extends Command
         $preferCache = $input->getOption('prefer-cache');
 
         $targetDir = getcwd() . DIRECTORY_SEPARATOR . $projectName;
+        $logger = new InstallerLogger($targetDir, $io, $isVerbose);
+        $manager = new InstallationManager($targetDir);
 
         // Handle existing directory
         if (!$input->getOption('force') && !$isDryRun && is_dir($targetDir)) {
@@ -219,22 +221,37 @@ class InstallCommand extends Command
 
             $io->writeln("\n<comment>Installing Machinjiri. Please wait..</comment>");
             $spinner = $this->createSpinner($output);
-            $spinner->start();
 
-            $installer = new Installer($io, $isVerbose);
-            
-            $installer->setProgressCallback(function ($step, $message) use ($spinner) {
-                $spinner->setMessage($step . " - " . $message);
+            $manager->registerStep('Install project', function () use ($io, $output, $projectName, $options, $spinner, $isDryRun, $isVerbose, $targetDir, $logger): void {
+                $spinner->start();
+
+                $installer = new Installer($io, $isVerbose);
+                $installer->setProgressCallback(function ($step, $message) use ($spinner): void {
+                    $spinner->setMessage($step . " - " . $message);
+                });
+
+                $logger->info('Starting project scaffolding');
+                $installer->install($projectName, $options);
+                $spinner->finish();
+                $io->newLine(2);
+
+                if ($isDryRun) {
+                    $io->success("Dry-run completed successfully!");
+                    $io->note("Run without --dry-run to create the project.");
+                    return;
+                }
+
+                $logger->success('Project scaffolding completed');
+            }, function () use ($targetDir, $logger): void {
+                if (is_dir($targetDir)) {
+                    InstallationManager::removeDirectory($targetDir);
+                }
+                $logger->warning('Rolled back partially created project files.');
             });
 
-            $installer->install($projectName, $options);
-
-            $spinner->finish();
-            $io->newLine(2);
+            $manager->executeAll();
 
             if ($isDryRun) {
-                $io->success("Dry-run completed successfully!");
-                $io->note("Run without --dry-run to create the project.");
                 return Command::SUCCESS;
             }
 
@@ -259,14 +276,15 @@ class InstallCommand extends Command
                 $summary->displayQuickStart();
             }
 
-            
-
+            $logger->displaySummary();
             return Command::SUCCESS;
         } catch (\Exception $e) {
+            $manager->rollback();
             if (!$isDryRun && !$input->getOption('keep-on-error') && is_dir($targetDir)) {
                 $io->warning("Installation failed. Removing partially created directory...");
                 $this->removeDirectory($targetDir);
             }
+            $logger->error($e->getMessage(), $e);
             $io->error($e->getMessage());
             if ($isVerbose) {
                 $io->note("Full stack trace:");
@@ -371,12 +389,12 @@ class InstallCommand extends Command
         }
         $this->bannerDisplayed = true;
         $bigM = <<<ASCII
-   ███╗   ███╗ █████╗  ██████╗██╗  ██╗██╗███╗   ██╗     ██╗██╗██████╗ 
-   ████╗ ████║██╔══██╗██╔════╝██║  ██║██║████╗  ██║     ██║██║██╔══██╗
-   ██╔████╔██║███████║██║     ███████║██║██╔██╗ ██║     ██║██║██████╔╝
-   ██║╚██╔╝██║██╔══██║██║     ██╔══██║██║██║╚██╗██║██   ██║██║██╔══██╗
-   ██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║██║██║ ╚████║╚█████╔╝██║██║  ██║
-   ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═╝  ╚═╝
+   ███╗   ███╗ █████╗  ██████╗██╗  ██╗██╗███╗   ██╗     ██╗██╗██████╗  ██╗
+   ████╗ ████║██╔══██╗██╔════╝██║  ██║██║████╗  ██║     ██║██║██╔══██╗ ██║
+   ██╔████╔██║███████║██║     ███████║██║██╔██╗ ██║     ██║██║██████╔╝ ██║
+   ██║╚██╔╝██║██╔══██║██║     ██╔══██║██║██║╚██╗██║██   ██║██║██╔══██╗ ██║
+   ██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║██║██║ ╚████║╚█████╔╝██║██║  ██║ ██║
+   ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═╝  ╚═╝ ╚═╝
 ASCII;
         $io->writeln('');
         $io->writeln('<fg=cyan;options=bold>' . $bigM . '</>');
