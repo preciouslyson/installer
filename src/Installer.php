@@ -53,14 +53,16 @@ class Installer
             $this->progress(5, 'Creating project files...');
             $this->createFiles();
             $this->progress(6, 'Writing composer.json...');
-            $this->writeComposerJson($projectName);
+            $this->writeComposerJson($projectName, $options['description']);
             $this->progress(7, 'Writing environment configuration...');
             $this->writeEnvironmentFile();
             $this->progress(8, 'Installing dependencies via Composer...');
             $this->runComposerInstall();
             $this->progress(9, 'Generating application key...');
             $this->generateAppKey();
-            $this->progress(10, 'Validating installation...');
+            $this->progress(10, 'Generating database config...');
+            $this->generateDatabaseConfig();
+            $this->progress(11, 'Validating installation...');
             $this->validateInstallation();
             
             $this->logger->success('Installation completed successfully');
@@ -73,7 +75,7 @@ class Installer
     private function checkRequirements(): void
     {
         try {
-            $this->validator->validatePhpVersion('8.0.0');
+            $this->validator->validatePhpVersion('8.2.0');
             $this->validator->validateExtensions(['json', 'mbstring', 'openssl']);
             
             if (!$this->composer) {
@@ -163,7 +165,7 @@ class Installer
           'app',
           'app/Controllers',
           'app/Middleware',
-          'app/Model',
+          'app/Models',
           'app/Providers',
           'app/Queue/Drivers',
           'tests/Unit',
@@ -185,19 +187,19 @@ class Installer
         }
     }
 
-    private function writeComposerJson(string $projectName): void
+    private function writeComposerJson(string $projectName, string $description): void
     {
         $version = $this->options['version'] ?? '*';
         
-        $vendor = 'machinjiri';
+        $vendor = strtolower(str_replace([' ', '-', '_', '.'], '', $this->options['company'] ?? 'machinjiri'));
         $packageName = strtolower(str_replace(' ', '-', $projectName));
         
         $composerJson = [
             'name' => $vendor . '/' . $packageName,
-            'description' => 'A Machinjiri Framework application',
+            'description' => $description,
             'type' => 'project',
             'require' => [
-                'php' => '^8.4',
+                'php' => '^' . VersionManager::RECOMMENDED_PHP_VERSION,
                 'machinjiri/framework' => $version,
             ],
             'require-dev' => [
@@ -272,7 +274,7 @@ APP_URL=http://localhost:3000
 APP_KEY=null
 APP_CIPHER=aes-256-gcm
 APP_VERSION=1.0.0
-APP_SUPPORT_EMAIL=admin@example.com
+APP_SUPPORT_EMAIL=admin@{$this->projectName}.com
 
 # ------------------------------------------------
 # Client Site Forgery (CSRF Token Name)          |
@@ -289,25 +291,14 @@ REPORT_ERRORS=false
 # ------------------------------------------------
 DB_FOREIGN_KEYS=true
 DB_PREFETCH=true
-# Database Configuration (Sqlite) Default
-# ------------------------------------------------
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
 
-# Database Configuration (MYSQL, PostGres, etc)
-# ------------------------------------------------
-# DB_CONNECTION=mysql
-# DB_HOST=127.0.0.1
-# DB_USERNAME=root
-# DB_PASSWORD=
-# DB_DATABASE=week
-# DB_PORT=3306
+DB_PLACEHOLDER=null
 
 # -------------------------------------------------
 # Cache Configuration                             |
 # -------------------------------------------------
-CACHE_DRIVER=redis
-CACHE_PREFIX=machinjiri_cache
+CACHE_DRIVER=file
+CACHE_PREFIX={$this->projectName}
 CACHE_DEFAULT_TTL=300
 CACHE_LOCAL_STORAGE=
 
@@ -316,7 +307,7 @@ CACHE_LOCAL_STORAGE=
 # -------------------------------------------------
 SESSION_DRIVER=file
 SESSION_LIFETIME=120
-SESSION_COOKIE=machinjiri_session
+SESSION_COOKIE={$this->projectName}_session
 SESSION_DOMAIN=null
 SESSION_SECURE_COOKIE=false
 
@@ -325,21 +316,14 @@ SESSION_SECURE_COOKIE=false
 # ------------------------------------------------
 QUEUE_DRIVER=sync
 QUEUE_FAILED_DRIVER=database
-# Worker limits
-# MB - worker restarts when exceeded
 QUEUE_WORKER_MAX_MEMORY=256
-# jobs - worker restarts after processing this many
 QUEUE_WORKER_MAX_JOBS=1000
 
 # Supervisor monitor settings
 QUEUE_WORKER_CHECK_INTERVAL=5
-# seconds after which a worker is considered dead
 QUEUE_WORKER_HEARTBEAT_TTL=15
-# seconds to wait before SIGKILL during shutdown
 QUEUE_WORKER_GRACE_PERIOD=10
-# whether worker exits when queue is empty
 QUEUE_WORKER_STOP_ON_EMPTY=false
-# Heartbeat interval inside the worker (implemented in BaseWorker)
 QUEUE_WORKER_HEARTBEAT_INTERVAL=60
 
 # ------------------------------------------------
@@ -351,10 +335,10 @@ MAIL_MAILER=smtp
 MAIL_HOST=smtp.mailtrap.io
 MAIL_PORT=2525
 MAIL_ENCRYPTION=tls
-MAIL_USERNAME=
-MAIL_PASSWORD=
-MAIL_FROM_ADDRESS=your-email-address
-MAIL_FROM_NAME=sanity-fm
+MAIL_USERNAME=someone@{$this->projectName}.com
+MAIL_PASSWORD=null
+MAIL_FROM_ADDRESS=no-reply@{$this->projectName}.com
+MAIL_FROM_NAME={$this->projectName}
 
 # -------------------------------------------------
 # Redis Server Configuration                      |
@@ -383,11 +367,11 @@ VIEW_COMPILED_PATH=storage/framework/views
 # ------------------------------------------------
 # Bangwe Encryption Configuration                |
 # ------------------------------------------------
-JWT_SECRET={APP_KEY}
+JWT_SECRET=null
 JWT_ALGO=HS256
 JWT_EXPIRATION=3600
-JWT_ISSUER=sanity-fm
-JWT_AUDIENCE=sanity-fm
+JWT_ISSUER={$this->projectName}
+JWT_AUDIENCE={$this->projectName}-audience
 
 # ------------------------------------------------
 # File System Configuration                      |
@@ -397,7 +381,7 @@ FILE_SYSTEM_ROOT=
 
 # ftp connection
 FILE_SYSTEM_FTP_HOST=ftp.example.com
-FILE_SYSTEM_FTP_USER=your-username
+FILE_SYSTEM_FTP_USER=your-username-here
 FILE_SYSTEM_FTP_PASSWORD=secret
 FILE_SYSTEM_FTP_ROOT=public_html/uploads
 FILE_SYSTEM_FTP_PORT=21
@@ -461,6 +445,22 @@ ENV;
             file_put_contents($envPath, $envContent);
         }
     }
+
+    private function generateDatabaseConfig(): void
+    {
+        $envPath = $this->projectDir . '/.env';
+
+        $config = match ($this->options['database']) {
+            "sqlite" => Root::sqliteEnvTemplate(),
+            "mysql" => Root::mysqlEnvTemplate(),
+        };
+        
+        if (file_exists($envPath)) {
+            $envContent = file_get_contents($envPath);
+            $envContent = preg_replace('/DB_PLACEHOLDER=.*/', $config, $envContent);
+            file_put_contents($envPath, $envContent);
+        }
+    }
     
     private function getTemplateData(): array
     {
@@ -515,7 +515,7 @@ ENV;
         $write($this->projectDir . '/config/providers.php', ConfigFiles::providersTemplate());
         $write($this->projectDir . '/config/app.php', ConfigFiles::appConfigTemplate());
         $write($this->projectDir . '/config/mail.php', ConfigFiles::mailConfigTemplate());
-        $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate());
+        $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate($this->options['database']));
         $write($this->projectDir . '/config/cache.php', ConfigFiles::cacheConfigTemplate());
         $write($this->projectDir . '/config/queue.php', ConfigFiles::queueConfigFileTemplate());
         $write($this->projectDir . '/config/routing.php', ConfigFiles::routingConfigFileTemplate());
