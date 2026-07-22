@@ -67,7 +67,7 @@ class InstallCommand extends Command
 
         $projectName = $input->getArgument('name');
         if (!$projectName && !$noInteraction) {
-            $projectName = $io->ask('Project name', 'machinjiri-app', function ($value) {
+            $projectName = $io->ask('Project Name', 'machinjiri-app', function ($value) {
                 if (empty(trim($value))) {
                     throw new \RuntimeException('Project name cannot be empty.');
                 }
@@ -243,10 +243,23 @@ class InstallCommand extends Command
                 $this->initializeGit($targetDir, $io);
             }
 
-            $io->success("Machinjiri installed successfully!");
+            $io->success($projectName . " created successfully");
 
             $summary = new InstallationSummary($targetDir, $projectName, $io);
-            $summary->displayComplete();
+            
+            $nextSteps = $io->confirm('Take a little tour?', false);
+            if ($nextSteps) {
+                $summary->displayQuickStart();
+                $summary->displayNextSteps();
+                $summary->displayImportantNotes();
+                $summary->displayResources();
+                $summary->display();
+            } else {
+                $summary->display();
+                $summary->displayQuickStart();
+            }
+
+            
 
             return Command::SUCCESS;
         } catch (\Exception $e) {

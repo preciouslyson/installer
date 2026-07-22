@@ -134,17 +134,4 @@ class InstallationSummary
         $this->io->newLine();
     }
 
-    /**
-     * Display complete installation report
-     * 
-     * @return void
-     */
-    public function displayComplete(): void
-    {
-        $this->display();
-        $this->displayQuickStart();
-        $this->displayImportantNotes();
-        $this->displayNextSteps();
-        $this->displayResources();
-    }
 }
