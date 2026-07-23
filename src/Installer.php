@@ -161,8 +161,6 @@ class Installer
           'storage/session',
           'storage/cache',
           'storage/logs',
-          'storage/logs/reports',
-          'storage/logs/events',
           'app',
           'app/Controllers',
           'app/Middleware',
@@ -348,6 +346,11 @@ REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 REDIS_PASSWORD=null
 REDIS_DATABASE=0
+REDIS_TIMEOUT=5
+REDIS_READ_WRITE_TIMEOUT=2.5
+REDIS_RETRY_INTERVAL=100
+REDIS_PREFIX=
+REDIS_SERIALIZE=true
 
 # -------------------------------------------------
 # Logging Configuration                           |
@@ -524,6 +527,7 @@ ENV;
         $write($this->projectDir . '/config/auth.php', ConfigFiles::authConfigurationTemplate());
         $write($this->projectDir . '/config/oauth.php', ConfigFiles::OAuthConfigurationTemplate());
         $write($this->projectDir . '/config/ldap.php', ConfigFiles::ldapConfigurationTemplate());
+        $write($this->projectDir . '/config/redis.php', ConfigFiles::redisConfigurationTemplate());
         
         /* Core Service Providers */
         $write($this->projectDir . '/app/Providers/AppServiceProvider.php', ServiceProviders::AppServiceProviderTemplate());

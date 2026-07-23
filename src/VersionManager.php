@@ -10,9 +10,8 @@ class VersionManager {
     public static function installable (): array
     {
         return [
-            'minimum' => '^2.1.5', // current machinjiri version
+            'minimum' => '^2.1.6', // current machinjiri version
             'installable' => [
-                '^2.1.5',
                 '^2.1.6',
             ]
         ];

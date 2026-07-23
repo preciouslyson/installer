@@ -444,7 +444,7 @@ ASCII;
         if (empty($stableVersions)) {
             usort($versions, 'version_compare');
             $latest = end($versions);
-            $this->logger->warning("No stable version found, using latest: {$latest}");
+            //$this->logger->warning("No stable version found, using latest: {$latest}");
             return $latest;
         }
         usort($stableVersions, 'version_compare');
