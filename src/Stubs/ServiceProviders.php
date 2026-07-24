@@ -281,6 +281,7 @@ use Mlangeni\Machinjiri\Core\Routing\RoutingConfig;
 use Mlangeni\Machinjiri\Core\Security\Hashing\Hasher;
 use Mlangeni\Machinjiri\Core\Security\Encryption\Bangwe;
 use Mlangeni\Machinjiri\Core\Authentication\ThirdParty\ThirdPartyAuth;
+use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
 
 // Note: The class below references MachinjiriException, but it is not imported.
 // This is likely a framework exception that should be available via a use statement
@@ -373,13 +374,13 @@ class AppServiceProvider extends ServiceProvider
         // EventListener is bound as a regular binding (not singleton) to allow
         // fresh instances with a dedicated logger.
         $this->bind(EventListener::class, function($app) {
-            return new EventListener(new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG, true));
+            return new EventListener(new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG, true, '', 'app'));
         });
 
         // -------------------- Logging --------------------
         // Logger binding uses the application name from environment, with DEBUG level.
         $this->bind(Logger::class, function($app) {
-            return new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG);
+            return new Logger(env('APP_NAME') ?? 'machinjiri', Logger::DEBUG, false, '', 'app');
         });
 
         // -------------------- CSRF Protection --------------------
@@ -471,6 +472,7 @@ class AppServiceProvider extends ServiceProvider
             $this->mergeConfigFrom($configDir . 'oauth.php', 'oauth');
             $this->mergeConfigFrom($configDir . 'ldap.php', 'ldap');
             $this->mergeConfigFrom($configDir . 'logger.php', 'logger');
+            $this->mergeConfigFrom($configDir . 'redis.php', 'redis');
         }
     }
 

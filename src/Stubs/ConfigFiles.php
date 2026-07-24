@@ -4,6 +4,46 @@ namespace Mlangeni\Machinjiri\Installer\Stubs;
 
 class ConfigFiles {
 
+    public static function redisConfigurationTemplate() { return <<<'PHP'
+<?php
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Default Redis Connection
+    |--------------------------------------------------------------------------
+    |
+    | The default connection to use when no specific connection is requested.
+    |
+    */
+    'default' => 'default',
+    /*
+    |--------------------------------------------------------------------------
+    | Redis Connections
+    |--------------------------------------------------------------------------
+    |
+    | Each connection can be configured with its own set of parameters.
+    | You can define multiple connections for different LDAP servers.
+    |
+    */
+    'connections' => [
+        'default' => [
+            'host'               => env('REDIS_HOST', '127.0.0.1'),
+            'port'               => env('REDIS_PORT', 679),
+            'database'           => env('REDIS_DATABASE', 0),
+            'password'           => env('REDIS_PASSWORD', null),
+            'timeout'            => env('REDIS_TIMEOUT', 2.5),
+            'read_write_timeout' => env('REDIS_READ_WRITE_TIMEOUT', 2.5),
+            'retry_interval'     => env('REDIS_RETRY_INTERVAL', 100),
+            'prefix'             => env('REDIS_PREFIX', ''),
+            'serialize'          => env('REDIS_SERIALIZE', true),
+        ],
+        // you can define additional connections here
+    ],
+];
+PHP;
+    }
+
     public static function authConfigurationTemplate() { return <<<'PHP'
 <?php
 
