@@ -182,5 +182,5 @@ To extend the installer:
 
 ---
 
-**Last Updated**: June 24, 2026  
-**Installer Version**: 1.2.8
+**Last Updated**: July 24, 2026  
+**Installer Version**: 1.3.0

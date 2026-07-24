@@ -155,7 +155,7 @@ class Installer
           'database/seeders',
           'storage',
           'storage/app',
-          'storage/store',
+          'storage/uploads',
           'storage/framework',
           'storage/framework/queue',
           'storage/session',
@@ -516,7 +516,7 @@ ENV;
         ->install($this->options['starter'], $write, $this->getTemplateData());
         
         /* Configuration files */
-        $write($this->projectDir . '/config/providers.php', ConfigFiles::providersTemplate());
+        $write($this->projectDir . '/config/services/providers.php', ConfigFiles::providersTemplate());
         $write($this->projectDir . '/config/app.php', ConfigFiles::appConfigTemplate());
         $write($this->projectDir . '/config/mail.php', ConfigFiles::mailConfigTemplate());
         $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate($this->options['database']));

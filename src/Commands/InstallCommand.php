@@ -112,7 +112,7 @@ class InstallCommand extends Command
             $installable = VersionManager::installable();
             if (!in_array($version, $installable)) {
                 $installable = $installable['installable'];
-                $userChoice = $io->choice('Version selected is currently not supported, Choose version below: ', $installable, 0);
+                $userChoice = $io->choice("Version [" . $version . "] selected is currently not supported, Choose version below: ", $installable, 0);
                 if (!in_array($userChoice, $installable)) throw new \RuntimeException("Invalid version selected!");
                 $version = $userChoice;
             }
@@ -388,18 +388,18 @@ class InstallCommand extends Command
             return;
         }
         $this->bannerDisplayed = true;
-        $bigM = <<<ASCII
-   ███╗   ███╗ █████╗  ██████╗██╗  ██╗██╗███╗   ██╗     ██╗██╗██████╗  ██╗
-   ████╗ ████║██╔══██╗██╔════╝██║  ██║██║████╗  ██║     ██║██║██╔══██╗ ██║
-   ██╔████╔██║███████║██║     ███████║██║██╔██╗ ██║     ██║██║██████╔╝ ██║
-   ██║╚██╔╝██║██╔══██║██║     ██╔══██║██║██║╚██╗██║██   ██║██║██╔══██╗ ██║
-   ██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║██║██║ ╚████║╚█████╔╝██║██║  ██║ ██║
-   ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═╝  ╚═╝ ╚═╝
+        $bannerText = <<<ASCII
+███╗   ███╗ █████╗  ██████╗██╗  ██╗██╗███╗   ██╗     ██╗██╗██████╗  ██╗
+████╗ ████║██╔══██╗██╔════╝██║  ██║██║████╗  ██║     ██║██║██╔══██╗ ██║
+██╔████╔██║███████║██║     ███████║██║██╔██╗ ██║     ██║██║██████╔╝ ██║
+██║╚██╔╝██║██╔══██║██║     ██╔══██║██║██║╚██╗██║██   ██║██║██╔══██╗ ██║
+██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║██║██║ ╚████║╚█████╔╝██║██║  ██║ ██║
+╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝ ╚════╝ ╚═╝╚═╝  ╚═╝ ╚═╝
 ASCII;
         $io->writeln('');
-        $io->writeln('<fg=cyan;options=bold>' . $bigM . '</>');
+        $io->writeln('<fg=cyan;>' . $bannerText . '</>');
         $io->writeln('');
-        $io->writeln('     <fg=white>The Cozy PHP Framework — where code meets comfort</>');
+        $io->writeln('<fg=white>The Cozy PHP Framework — where code meets comfort</>');
         $io->writeln('');
     }
     

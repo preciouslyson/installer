@@ -3,6 +3,7 @@
 namespace Mlangeni\Machinjiri\Installer;
 
 use Symfony\Component\Console\Application;
+use Mlangeni\Machinjiri\Installer\VersionManager;
 
 class ComposerScripts
 {
@@ -13,6 +14,8 @@ class ComposerScripts
         if (!is_dir($binDir)) {
             mkdir($binDir, 0755, true);
         }
+
+        $version = VersionManager::INSTALLER_VERSION;
 
         // Create the CLI executable
         $cliContent = <<<'PHP'
@@ -25,7 +28,7 @@ if (file_exists(__DIR__.'/../../../autoload.php')) {
 }
 use Symfony\Component\Console\Application;
 use Mlangeni\Machinjiri\Installer\Commands\InstallCommand;
-$terminal = new Application('Machinjiri Installer', '1.2.9');
+$terminal = new Application('Machinjiri Installer', $version);
 $terminal->add(new InstallCommand());
 $terminal->run();
 PHP;

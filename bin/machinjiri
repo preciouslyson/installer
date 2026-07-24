@@ -7,6 +7,6 @@ if (file_exists(__DIR__.'/../../../autoload.php')) {
 }
 use Symfony\Component\Console\Application;
 use Mlangeni\Machinjiri\Installer\Commands\InstallCommand;
-$terminal = new Application('Machinjiri Installer', '1.2.9');
+$terminal = new Application('Machinjiri Installer', '1.3.0');
 $terminal->add(new InstallCommand());
 $terminal->run();
