@@ -262,18 +262,15 @@ PHP;
 namespace Mlangeni\Machinjiri\App\Providers;
 
 use Mlangeni\Machinjiri\Core\Providers\ServiceProvider;
-use Mlangeni\Machinjiri\Core\Http\HttpRequest;
-use Mlangeni\Machinjiri\Core\Http\HttpResponse;
+use Mlangeni\Machinjiri\Core\Http\{HttpRequest, HttpResponse, HttpClient};
 use Mlangeni\Machinjiri\Core\Authentication\Session;
 use Mlangeni\Machinjiri\Core\Authentication\Cookie;
 use Mlangeni\Machinjiri\Core\Authentication\AuthManager;
-use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
-use Mlangeni\Machinjiri\Core\Artisans\Logging\LoggerFactory;
+use Mlangeni\Machinjiri\Core\Artisans\Logging\{Logger, LoggerFactory};
 use Mlangeni\Machinjiri\Core\Artisans\Events\EventListener;
 use Mlangeni\Machinjiri\Core\Debug\Debugger;
 use Mlangeni\Machinjiri\Core\FileSystem\FileSystemManager;
-use Mlangeni\Machinjiri\Core\FileSystem\Adapters\LocalAdapter;
-use Mlangeni\Machinjiri\Core\FileSystem\Adapters\FtpAdapter;
+use Mlangeni\Machinjiri\Core\FileSystem\Adapters\{LocalAdapter, FtpAdapter};
 use Mlangeni\Machinjiri\Core\Artisans\Caching\CacheManager;
 use Mlangeni\Machinjiri\Core\Transport\Mail\MailManager;
 use Mlangeni\Machinjiri\Core\Security\Tokens\CSRFToken;
@@ -282,6 +279,7 @@ use Mlangeni\Machinjiri\Core\Security\Hashing\Hasher;
 use Mlangeni\Machinjiri\Core\Security\Encryption\Bangwe;
 use Mlangeni\Machinjiri\Core\Authentication\ThirdParty\ThirdPartyAuth;
 use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
+use Mlangeni\Machinjiri\Core\Components\Network\Tools\{Manager, Scanner, Monitor, NetworkConfig};
 
 // Note: The class below references MachinjiriException, but it is not imported.
 // This is likely a framework exception that should be available via a use statement
@@ -310,6 +308,11 @@ class AppServiceProvider extends ServiceProvider
         // Register the HTTP response as a singleton for output manipulation.
         $this->singleton(HttpResponse::class, function($app) {
             return new HttpResponse();
+        });
+
+        // Register the HTTP client for making external requests.
+        $this->singleton(HttpClient::class, function($app) {
+            return new HttpClient();
         });
 
         // -------------------- Authentication Services --------------------
@@ -421,6 +424,37 @@ class AppServiceProvider extends ServiceProvider
         // Custom LDAP manager registered with a string alias, using LDAP config.
         $this->singleton('ldap.manager', function ($app) {
             return new \Mlangeni\Machinjiri\Core\Components\LDAP\Manager($app->configurations['ldap']);
+        });
+
+        // -------------------- Network Components --------------------
+        // Network Manager, Scanner, and Monitor are registered as singletons.
+        $this->singleton("network.manager", function ($app) {
+            return new Manager(
+                $app->resolve("network.scanner"),
+                $app->resolve("network.monitor"),
+                $app->resolve("cache.manager"),
+                $app->resolve("network.config"),
+                $app->resolve('queue.dispatcher'),
+                $app->resolve(EventListener::class)
+            );
+        });
+        $this->singleton("network.scanner", function ($app) {
+            return new Scanner(
+                $app->resolve("cache.manager"),
+                $app->resolve("network.config"),
+                $app->resolve(HttpClient::class)
+            );
+        });
+        $this->singleton("network.monitor", function ($app) {
+            return new Monitor(
+                $app->resolve("network.scanner"),
+                $app->resolve("cache.manager"),
+                $app->resolve("network.config")
+            );
+        });
+        $this->singleton("network.config", function ($app) {
+            $config = $this->app->config . 'network.php';
+            return is_file($config) ? require $config : new NetworkConfig();
         });
 
         // -------------------- Aliases for Convenience --------------------
