@@ -681,7 +681,7 @@ return [
         'password' => env('DB_PASSWORD', null),
         'database' => env('DB_DATABASE', null),
         'port' => env('DB_PORT', 3306),
-        'charset' => env('DB_DATABASE', 'utf-8'),
+        'charset' => env('DB_CHARSET', 'utf8'),
     ],
   ]
 ];
