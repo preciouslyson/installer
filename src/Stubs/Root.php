@@ -21,6 +21,7 @@ DB_USERNAME=username-here
 DB_PASSWORD=password-here
 DB_DATABASE=database-name-here
 DB_PORT=3306
+DB_CHARSET=utf8
 ENV;    
     }
 
