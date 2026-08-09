@@ -742,9 +742,9 @@ return [
     */
 
     'providers' => [
-        \Mlangeni\Machinjiri\App\Providers\AppServiceProvider::class,
-        \Mlangeni\Machinjiri\App\Providers\DatabaseServiceProvider::class,
-        \Mlangeni\Machinjiri\App\Providers\QueueServiceProvider::class,
+        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\AppServiceProvider::class,
+        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\DatabaseServiceProvider::class,
+        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\QueueServiceProvider::class,
     ],
     
     /**

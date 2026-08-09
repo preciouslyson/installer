@@ -8,9 +8,9 @@ class Bootstrap {
 <?php
 
 use Mlangeni\Machinjiri\Core\Container;
-use Mlangeni\Machinjiri\App\Providers\AppServiceProvider;
-use Mlangeni\Machinjiri\App\Providers\DatabaseServiceProvider;
-use Mlangeni\Machinjiri\App\Providers\QueueServiceProvider;
+use Mlangeni\Machinjiri\Core\Providers\CoreProviders\AppServiceProvider;
+use Mlangeni\Machinjiri\Core\Providers\CoreProviders\DatabaseServiceProvider;
+use Mlangeni\Machinjiri\Core\Providers\CoreProviders\QueueServiceProvider;
 
 $appRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR;
 
