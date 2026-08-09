@@ -1,5 +1,46 @@
 # Changelog
 
+## 1.3.3 - 2026-08-09
+
+### Highlights
+
+This release strengthens installer reliability, validation, logging, and user experience for Machinjiri project creation.
+
+### Added
+
+- `ProjectValidator` for comprehensive project configuration validation
+- `InstallationManager` with install-step orchestration and rollback support
+- `InstallerLogger` with timestamped log levels, verbose output, and `.installation.log` generation
+- `InstallationSummary` with post-install reporting and next-step guidance
+- CLI options for `--dry-run`, `--verbose`, `--force`, `--no-dev`, and `--m-version`
+
+### Improved
+
+- More descriptive error messages and automatic failure logging
+- Safer install flows with pre-install validation and cleanup on failure
+- Clearer progress reporting and onboarding feedback
+- Secure configuration handling with stricter `.env` permissions
+
+### Requirements
+
+- PHP 8.3 or newer
+- Composer 2.x
+- Required extensions: json, mbstring, openssl, zip, pdo, tokenizer, and ctype
+
+### Upgrade Notes
+
+To install or update to this version:
+
+```bash
+composer global require machinjiri/installer
+```
+
+Or, if you are using it as a project dependency:
+
+```bash
+composer require --dev machinjiri/installer
+```
+
 ## 1.3.0 - 2026-07-22
 
 ### Highlights

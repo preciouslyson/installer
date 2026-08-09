@@ -8,7 +8,6 @@ use Symfony\Component\Process\Exception\ProcessFailedException;
 use \RuntimeException;
 use Mlangeni\Machinjiri\Installer\StarterkitManager;
 use Mlangeni\Machinjiri\Installer\Stubs\ConfigFiles;
-use Mlangeni\Machinjiri\Installer\Stubs\ServiceProviders;
 use Mlangeni\Machinjiri\Installer\Stubs\Database;
 use Mlangeni\Machinjiri\Installer\Stubs\Root;
 use Mlangeni\Machinjiri\Installer\Stubs\Resources;
@@ -170,7 +169,8 @@ class Installer
           'tests/Unit',
           'tests/Features',
           'config',
-          'config/services'
+          'config/services',
+          'config/core',
         ];
 
         foreach ($directories as $directory) {
@@ -517,22 +517,17 @@ ENV;
         
         /* Configuration files */
         $write($this->projectDir . '/config/services/providers.php', ConfigFiles::providersTemplate());
-        $write($this->projectDir . '/config/app.php', ConfigFiles::appConfigTemplate());
-        $write($this->projectDir . '/config/mail.php', ConfigFiles::mailConfigTemplate());
-        $write($this->projectDir . '/config/database.php', ConfigFiles::databaseConfigTemplate($this->options['database']));
-        $write($this->projectDir . '/config/cache.php', ConfigFiles::cacheConfigTemplate());
-        $write($this->projectDir . '/config/queue.php', ConfigFiles::queueConfigFileTemplate());
-        $write($this->projectDir . '/config/routing.php', ConfigFiles::routingConfigFileTemplate());
-        $write($this->projectDir . '/config/filesystem.php', ConfigFiles::fileSystemConfigurationTemplate());
-        $write($this->projectDir . '/config/auth.php', ConfigFiles::authConfigurationTemplate());
-        $write($this->projectDir . '/config/oauth.php', ConfigFiles::OAuthConfigurationTemplate());
-        $write($this->projectDir . '/config/ldap.php', ConfigFiles::ldapConfigurationTemplate());
-        $write($this->projectDir . '/config/redis.php', ConfigFiles::redisConfigurationTemplate());
-        
-        /* Core Service Providers */
-        $write($this->projectDir . '/app/Providers/AppServiceProvider.php', ServiceProviders::AppServiceProviderTemplate());
-        $write($this->projectDir . '/app/Providers/QueueServiceProvider.php', ServiceProviders::QueueServiceProviderTemplate());
-        $write($this->projectDir . '/app/Providers/DatabaseServiceProvider.php', ServiceProviders::DatabaseServiceProviderTemplate());
+        $write($this->getCoreConfigDir() . '/app.php', ConfigFiles::appConfigTemplate());
+        $write($this->getCoreConfigDir() . '/mail.php', ConfigFiles::mailConfigTemplate());
+        $write($this->getCoreConfigDir() . '/database.php', ConfigFiles::databaseConfigTemplate($this->options['database']));
+        $write($this->getCoreConfigDir() . '/cache.php', ConfigFiles::cacheConfigTemplate());
+        $write($this->getCoreConfigDir() . '/queue.php', ConfigFiles::queueConfigFileTemplate());
+        $write($this->getCoreConfigDir() . '/routing.php', ConfigFiles::routingConfigFileTemplate());
+        $write($this->getCoreConfigDir() . '/filesystem.php', ConfigFiles::fileSystemConfigurationTemplate());
+        $write($this->getCoreConfigDir() . '/auth.php', ConfigFiles::authConfigurationTemplate());
+        $write($this->getCoreConfigDir() . '/oauth.php', ConfigFiles::OAuthConfigurationTemplate());
+        $write($this->getCoreConfigDir() . '/ldap.php', ConfigFiles::ldapConfigurationTemplate());
+        $write($this->getCoreConfigDir() . '/redis.php', ConfigFiles::redisConfigurationTemplate());
         
         /* Database Files */
         $write($this->projectDir . '/database/cache-prefetch-db.php', Database::dbCachePrefetchTemplate());
@@ -560,6 +555,11 @@ ENV;
             $write($this->projectDir . '/public/src/js/app.js', Publics::jsTemplate());
             $write($this->projectDir . '/public/src/css/app.css', Publics::cssTemplate());
         }
+    }
+
+    private function getCoreConfigDir(): string 
+    {
+        return $this->projectDir . "/config/core";
     }
   
 }
