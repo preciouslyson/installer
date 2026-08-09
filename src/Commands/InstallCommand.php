@@ -105,17 +105,15 @@ class InstallCommand extends Command
 
         $version = $input->getOption('m-version');
         if (!$version && !$noInteraction) {
-            $version = $io->ask('Machinjiri version (leave empty for latest)', '*');
-            if (empty($version) || $version === '*') {
-                $version = $this->resolveFrameworkVersion('*');
-            }
-            $installable = VersionManager::installable();
-            if (!in_array($version, $installable)) {
-                $installable = $installable['installable'];
-                $userChoice = $io->choice("Version [" . $version . "] selected is currently not supported, Choose version below: ", $installable, 0);
+            $installable = VersionManager::installable()['installable'];
+            if (count($installable) > 1) {
+                $userChoice = $io->choice("Select a Machinjiri version to install ", $installable, 0);
                 if (!in_array($userChoice, $installable)) throw new \RuntimeException("Invalid version selected!");
                 $version = $userChoice;
+            } else {
+                $version = VersionManager::installable()['minimum'];
             }
+            
         }
 
         // Database
