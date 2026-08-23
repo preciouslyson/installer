@@ -29,7 +29,10 @@ class DefaultKit
   
   private static function RoutesTemplate(): string { return <<<'PHP'
 <?php
+
 use Mlangeni\Machinjiri\Core\Routing\Router;
+use App\Controllers\HomeController;
+
 /**
  * Web Routes
  * Define your web routes here.
@@ -38,7 +41,7 @@ use Mlangeni\Machinjiri\Core\Routing\Router;
  */
 
 /* Welcome Route */
-Router::get('/', 'HomeController@index', 'welcome');
+Router::get('/', [HomeController::class, 'index'], 'welcome');
 
 
 
@@ -52,7 +55,7 @@ PHP;
   private static function HomeControllerTemplate(): string { return <<<PHP
 <?php
 
-namespace Mlangeni\Machinjiri\App\Controllers;
+namespace App\Controllers;
 
 use Mlangeni\Machinjiri\Core\Artisans\Base\AbstractController;
 use Mlangeni\Machinjiri\Core\Http\HttpRequest;

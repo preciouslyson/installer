@@ -41,7 +41,9 @@ class Blog
   
   private static function RoutesTemplate(): string { return <<<'PHP'
 <?php
+
 use Mlangeni\Machinjiri\Core\Routing\Router;
+use App\Controllers\BlogController;
 /**
  * Web Routes
  * Define your web routes here.
@@ -49,7 +51,7 @@ use Mlangeni\Machinjiri\Core\Routing\Router;
  * Remember to keep your routes organized and manageable.
  */
 
-Router::get('/', 'BlogController@index', 'blog.home');
+Router::get('/', [BlogController::class, 'index'], 'blog.home');
 
 
 
@@ -63,7 +65,7 @@ PHP;
   private static function HomeControllerTemplate(): string { return <<<PHP
 <?php
 
-namespace Mlangeni\Machinjiri\App\Controllers;
+namespace App\Controllers;
 
 use Mlangeni\Machinjiri\Core\Artisans\Base\AbstractController;
 use Mlangeni\Machinjiri\Core\Http\HttpRequest;
