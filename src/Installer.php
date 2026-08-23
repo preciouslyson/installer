@@ -206,7 +206,7 @@ class Installer
             ],
             'autoload' => [
                 'psr-4' => [
-                    'Mlangeni\\Machinjiri\\App\\' => 'app/',
+                    'App\\' => 'app/',
                     'Mlangeni\\Machinjiri\\Database\\' => "database/",
                 ],
                 'files' => [

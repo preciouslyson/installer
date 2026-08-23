@@ -8,9 +8,6 @@ class Bootstrap {
 <?php
 
 use Mlangeni\Machinjiri\Core\Container;
-use Mlangeni\Machinjiri\Core\Providers\CoreProviders\AppServiceProvider;
-use Mlangeni\Machinjiri\Core\Providers\CoreProviders\DatabaseServiceProvider;
-use Mlangeni\Machinjiri\Core\Providers\CoreProviders\QueueServiceProvider;
 
 $appRoot = dirname(__DIR__) . DIRECTORY_SEPARATOR;
 
@@ -24,11 +21,7 @@ $app = new Container($appRoot, $debug, true);
 
 $app->initialize();
 
-$providers = [
-    AppServiceProvider::class,
-    DatabaseServiceProvider::class,
-    QueueServiceProvider::class,
-];
+$providers = [];
 
 foreach ($providers as $providerClass) {
     $provider = new $providerClass($app);

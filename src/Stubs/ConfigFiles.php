@@ -694,10 +694,10 @@ PHP,
 <?php
 
 return [
-  'default' => env('MAIL_MAILER', 'smtp'),
-  'mailers' => [
-    'smtp' => [
-      'transport' => 'smtp',
+  'default' => env('MAIL_DRIVER', 'phpmailer'),
+  'transports' => [
+    'phpmailer' => [
+      'transport' => 'phpmailer',
       'host' => env('MAIL_HOST', 'smtp.mailtrap.io'),
       'port' => env('MAIL_PORT', 2525),
       'encryption' => env('MAIL_ENCRYPTION', 'tls'),
@@ -705,12 +705,10 @@ return [
       'password' => env('MAIL_PASSWORD'),
       'timeout' => null,
       'auth_mode' => null,
+      'debug' => false, //debug mode for smtp
+      'from_address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
     ],
-      // Add other mailers as needed
-  ],
-  'from' => [
-      'address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
-      'name' => env('MAIL_FROM_NAME', 'Example'),
+      // Add other transports as needed
   ]
 ];
 PHP;
@@ -742,9 +740,7 @@ return [
     */
 
     'providers' => [
-        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\AppServiceProvider::class,
-        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\DatabaseServiceProvider::class,
-        \Mlangeni\Machinjiri\Core\Providers\CoreProviders\QueueServiceProvider::class,
+
     ],
     
     /**
@@ -806,6 +802,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Maintenance Mode
+    |--------------------------------------------------------------------------
+    |
+    | When your application is in meintenance mode, a 503 service unavailable page will be displayed
+    |
+    */
+    'maintenance' => env('APP_MAINTENANCE', false),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application URL
     |--------------------------------------------------------------------------
     |
@@ -814,7 +820,7 @@ return [
     | your application so that it is used when running Artisan tasks.
     |
     */
-    'url' => env('APP_URL', 'http://localhost'),
+    'url' => env('APP_URL', 'http://localhost:3000'),
 
     /*
     |--------------------------------------------------------------------------

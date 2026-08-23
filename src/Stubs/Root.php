@@ -167,7 +167,7 @@ HT;
         <env name="QUEUE_CONNECTION" value="sync"/>
         
         <!-- Mail is logged to an array; no real emails are sent -->
-        <env name="MAIL_MAILER" value="array"/>
+        <env name="MAIL_DRIVER" value="array"/>
         
         <!-- Session stored in array (stateless) -->
         <env name="SESSION_DRIVER" value="array"/>
