@@ -180,9 +180,30 @@ After a successful install:
 
 ## Troubleshooting
 
-### Composer is not found
+### Command not found 
 
 Make sure Composer is installed and available in your `PATH`.
+
+1. Locate Your Composer Binary Directory
+```bash
+ls ~/.config/composer/vendor/bin
+# OR
+ls ~/.composer/vendor/bin
+```
+
+2. Update Your Shell Profile
+
+If your path was .config/composer:bash
+
+```bash
+export PATH="$HOME/.config/composer/vendor/bin:$PATH"
+```
+Use code with caution.
+If your path was .composer:bash
+```bash
+export PATH="$HOME/.composer/vendor/bin:$PATH"
+```
+
 
 ### Missing PHP extensions
 
