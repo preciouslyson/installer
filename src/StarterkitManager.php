@@ -25,6 +25,9 @@ final class StarterkitManager
           $write($this->projectDir . $file['file'], $file['template']);
         }
         break;
+      case 'minimal':
+        // wait for project structure to be created
+        break;
       default:
         throw new Exception('Unknown starter kit: ' . $starterKit);
     }
@@ -35,6 +38,7 @@ final class StarterkitManager
     return [
       'default' => 'Default Starter kit',
       'blog' => 'Blog Starter kit',
+      'minimal' => 'Minimal Starter kit - Just the structure created'
     ];
   }
 }

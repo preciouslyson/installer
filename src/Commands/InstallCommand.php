@@ -107,8 +107,8 @@ class InstallCommand extends Command
         if (!$version && !$noInteraction) {
             $installable = VersionManager::installable()['installable'];
             if (count($installable) > 1) {
-                $userChoice = $io->choice("Select a Machinjiri version to install ", $installable, 0);
-                if (!in_array($userChoice, $installable)) throw new \RuntimeException("Invalid version selected!");
+                $userChoice = $io->choice("Select a Machinjiri version to install: default is: ", $installable, VersionManager::installable()['minimum']);
+                if (!array_key_exists($userChoice, $installable)) throw new \RuntimeException("Invalid version selected!");
                 $version = $userChoice;
             } else {
                 $version = VersionManager::installable()['minimum'];
@@ -339,7 +339,7 @@ class InstallCommand extends Command
         $spinner->setBarCharacter('<fg=green>⚬</>');
         $spinner->setEmptyBarCharacter(' ');
         $spinner->setProgressCharacter('➤');
-        $spinner->setMessage('Starting...');
+        $spinner->setMessage('Installing...');
         $spinner->start();
         return $spinner;
     }
