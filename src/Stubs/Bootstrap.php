@@ -104,9 +104,8 @@ use Mlangeni\Machinjiri\Core\Exceptions\MachinjiriException;
 use Mlangeni\Machinjiri\Core\Artisans\Logging\Logger;
 use Mlangeni\Machinjiri\Core\Date\DateTimeHandler;
 use Mlangeni\Machinjiri\Core\Debug\Dumper;
-use Mlangeni\Machinjiri\Integrations\Vite\Vite;
 use Mlangeni\Machinjiri\Core\Debug\Debugger;
-use Mlangeni\Machinjiri\Core\Views\View;
+use Mlangeni\Machinjiri\Core\Views\{View, Services\AssetManager};
 use Mlangeni\Machinjiri\Core\Routing\Router;
 use Mlangeni\Machinjiri\Core\Http\HttpClient;
 use Mlangeni\Machinjiri\Core\Http\HttpRequest;
@@ -655,39 +654,6 @@ if (!function_exists('dd')) {
     }
 }
 
-if (!function_exists('vite')) {
-    /**
-     * Get the Vite instance or generate tags for given entries.
-     *
-     * @param string|array|null $entries
-     * @return Vite|string
-     */
-    function vite($entries = null)
-    {
-        /** @var Vite $vite */
-        $vite = Container::getInstance()->make(Vite::class);
-
-        if ($entries === null) {
-            return $vite;
-        }
-
-        return $vite->entry($entries)->tags();
-    }
-}
-
-if (!function_exists('vite_asset')) {
-    /**
-     * Get the URL for a Vite asset.
-     *
-     * @param string $path
-     * @return string
-     */
-    function vite_asset(string $path): string
-    {
-        return Container::getInstance()->make(Vite::class)->asset($path);
-    }
-}
-
 if (!function_exists('debugger')) {
     /**
      * Get the Debugger instance.
@@ -774,11 +740,11 @@ if (!function_exists('style')) {
      *
      * @param string $path
      * @param array $attributes
-     * @return string
+     * @return void
      */
-    function style(string $path, array $attributes = []): string
+    function style(string $path, array $attributes = []): void
     {
-        return View::style($path, $attributes);
+        (new AssetManager())->style($path, $attributes);
     }
 }
 
@@ -790,25 +756,12 @@ if (!function_exists('script')) {
      * @param array $attributes
      * @return string
      */
-    function script(string $path, array $attributes = []): string
+    function script(string $path, array $attributes = []): void
     {
-        return View::script($path, $attributes);
+        (new AssetManager())->script($path, $attributes);
     }
 }
 
-if (!function_exists('load_resource')) {
-    /**
-     * Legacy resource loader (loads all CSS/JS files recursively or a single file).
-     *
-     * @param string $type 'css' or 'js'
-     * @param string $path Optional specific file path
-     * @return string
-     */
-    function load_resource(string $type, string $path = ""): string
-    {
-        return View::loadResource($type, $path);
-    }
-}
 
 if (!function_exists('share')) {
     /**
@@ -919,12 +872,10 @@ if (!function_exists('getSection')) {
 if (!function_exists('parent')) {
     /**
      * Output the parent section content (when using inheritance).
-     *
-     * @param string $name
      */
-    function parent(string $name): void
+    function parent(): void
     {
-        View::parent($name);
+        View::parent();
     }
 }
 // Router API Functions
@@ -1079,7 +1030,7 @@ if (!function_exists('route_cors')) {
     function route_cors(array $config = [], ?callable $callback = null): Router
     {
         if ($callback !== null) {
-            return Router::cors($config, $callback);
+            return Router::cors($config);
         }
         return Router::cors($config);
     }
