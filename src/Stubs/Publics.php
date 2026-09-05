@@ -35,10 +35,10 @@ JS;
  */
 
 // Load the application bootstrap – this creates the \$machinjiri instance
-require __DIR__ . '/../bootstrap/app.php';
+\$app = require __DIR__ . '/../bootstrap/app.php';
 
-// Initialise the application: process the request, route, and send response
-\$machinjiri->init();
+// render all web requests
+\$app->initWeb();
 PHP;
     }
 

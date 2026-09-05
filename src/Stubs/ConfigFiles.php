@@ -4,6 +4,193 @@ namespace Mlangeni\Machinjiri\Installer\Stubs;
 
 class ConfigFiles {
 
+    public static function smsConfigurationTemplate() {return <<<'PHP'
+<?php
+
+/**
+ * SMS Transport Configuration
+ * 
+ * This configuration file defines the settings for SMS transport drivers,
+ including retry policies, circuit breakers, rate limiting, and default transports.
+ */
+
+return [
+    /*
+    |--------------------------------------------------------------------------
+    | Default SMS Transport
+    |--------------------------------------------------------------------------
+    |
+    | This option controls the default SMS transport that will be used by the
+    | SMSManager when no specific transport is specified.
+    |
+    */
+    'default' => env('SMS_DEFAULT_DRIVER', 'africastalking'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Asynchronous Sending
+    |--------------------------------------------------------------------------
+    |
+    | When set to true, SMS messages will be queued for asynchronous delivery.
+    | This improves response times but requires a queue worker to be running.
+    |
+    */
+    'async' => env('SMS_ASYNC', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transport Configurations
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure each SMS transport driver. Each driver should have
+    | a unique key and contain the necessary credentials and settings for the
+    | specific SMS provider.
+    |
+    | Available drivers: africastalking
+    |
+    */
+    'transports' => [
+        'africastalking' => [
+            'driver' => 'africastalking',
+            
+            // Provider-specific configuration
+            'api_key' => env('AFRICASTALKING_API_KEY', ''),
+            'username' => env('AFRICASTALKING_USERNAME', ''),
+            'from' => env('AFRICASTALKING_FROM', ''),
+            'sandbox' => env('AFRICASTALKING_SANDBOX', true),
+            
+            // Custom transport class (optional - overrides default)
+            'transportClass' => Mlangeni\Machinjiri\Core\Transport\SMS\Transports\AfricasTalkingTransport::class,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Retry Policy
+    |--------------------------------------------------------------------------
+    |
+    | These settings control how the system retries failed SMS deliveries.
+    | The retry policy uses exponential backoff with jitter to prevent
+    | overwhelming the provider during outages.
+    |
+    */
+    'retry' => [
+        'max_attempts' => env('SMS_RETRY_MAX_ATTEMPTS', 3),
+        'base_delay_ms' => env('SMS_RETRY_BASE_DELAY', 1000),
+        'backoff_factor' => env('SMS_RETRY_BACKOFF_FACTOR', 2.0),
+        'jitter_factor' => env('SMS_RETRY_JITTER_FACTOR', 0.1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Rate Limiting
+    |--------------------------------------------------------------------------
+    |
+    | Rate limiting prevents exceeding provider limits by controlling
+    | the number of SMS messages sent per time window.
+    |
+    */
+    'rate_limit' => [
+        // Maximum number of SMS messages per time window
+        'max_messages' => env('SMS_RATE_LIMIT_MAX', 10),
+        
+        // Time window in minutes
+        'time_window_minutes' => env('SMS_RATE_LIMIT_WINDOW', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Circuit Breaker
+    |--------------------------------------------------------------------------
+    |
+    | The circuit breaker prevents sending SMS when the provider is
+    | experiencing issues. It tracks failures and opens the circuit
+    | after a certain threshold is reached.
+    |
+    */
+    'circuit_breaker' => [
+        'failure_threshold' => env('SMS_CIRCUIT_FAILURE_THRESHOLD', 5),
+        'timeout_seconds' => env('SMS_CIRCUIT_TIMEOUT', 60),
+        'half_open_attempts' => env('SMS_CIRCUIT_HALF_OPEN_ATTEMPTS', 1),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Idempotency
+    |--------------------------------------------------------------------------
+    |
+    | Idempotency prevents duplicate SMS messages by storing processed
+    | message hashes. The TTL defines how long to remember processed messages.
+    |
+    */
+    'idempotency' => [
+        'ttl_seconds' => env('SMS_IDEMPOTENCY_TTL', 3600),
+        'cache_key_prefix' => 'sms_idempotent_',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Logging
+    |--------------------------------------------------------------------------
+    |
+    | Configure which events to log and at what level.
+    |
+    */
+    'logging' => [
+        'enabled' => env('SMS_LOGGING_ENABLED', true),
+        'channel' => env('SMS_LOGGING_CHANNEL', 'daily'),
+        'level' => env('SMS_LOGGING_LEVEL', 'info'),
+        'log_success' => true,
+        'log_failure' => true,
+        'log_sensitive_data' => false, // Don't log phone numbers or message content
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Queue Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings for queue-based SMS sending.
+    |
+    */
+    'queue' => [
+        'connection' => env('SMS_QUEUE_CONNECTION', 'default'),
+        'queue' => env('SMS_QUEUE_NAME', 'sms'),
+        'retry_after' => env('SMS_QUEUE_RETRY_AFTER', 90),
+        'max_attempts' => env('SMS_QUEUE_MAX_ATTEMPTS', 3),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Transport-Specific Defaults
+    |--------------------------------------------------------------------------
+    |
+    | Default values that apply to all transports unless overridden.
+    |
+    */
+    'defaults' => [
+        'from' => env('SMS_DEFAULT_FROM', ''),
+        'timeout_seconds' => env('SMS_DEFAULT_TIMEOUT', 30),
+        'connect_timeout_seconds' => env('SMS_DEFAULT_CONNECT_TIMEOUT', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Fallback Configuration
+    |--------------------------------------------------------------------------
+    |
+    | If the primary transport fails, you can specify a fallback transport.
+    | The system will attempt the fallback before reporting a failure.
+    |
+    */
+    'fallback' => [
+        'enabled' => env('SMS_FALLBACK_ENABLED', false),
+        'driver' => env('SMS_FALLBACK_DRIVER', null),
+    ],
+];
+PHP;
+    }
+
     public static function redisConfigurationTemplate() { return <<<'PHP'
 <?php
 
@@ -489,7 +676,7 @@ return [
     'disks' => [
         'local' => [
             'driver' => 'local',
-            'root'   => env('FILE_SYSTEM_ROOT') ?: __DIR__ . '/../storage/app',
+            'root'   => env('FILE_SYSTEM_ROOT') ?: storage_path('uploads'),
         ],
         'ftp' => [
             'driver'   => 'ftp',
@@ -513,15 +700,15 @@ PHP;
 use Mlangeni\Machinjiri\Core\Routing\RoutingConfig;
 
 return new RoutingConfig(
-    cacheFile: __DIR__ . '/../storage/cache/routes.cache',
-    errorsDir: __DIR__ . '/../resources/views/errors',
-    controllersNamespace: 'Mlangeni\\Machinjiri\\App\\Controllers',
+    cacheFile: storage_path('cache/routes.cache'),
+    errorsDir: resource_path('views/errors'),
+    controllersNamespace: 'App\\Controllers',
     rateLimiters: [
         'api' => ['max_requests' => 100, 'period' => 60],
         'login' => ['max_requests' => 5, 'period' => 300],
     ],
-    viewsBasePath: __DIR__ . '/../resources/views',
-    viewsCachePath: __DIR__ . '/../storage/cache/views',
+    viewsBasePath: resource_path('views'),
+    viewsCachePath: storage_path('cache/views/'),
     enableCsrf: true,
     corsDefaults: [
         'allowed_origins' => ['https://example.com'],
@@ -535,6 +722,7 @@ PHP;
 
     public static function queueConfigFileTemplate() { return <<<'PHP'
 <?php
+        
 return [
     /*
     |--------------------------------------------------------------------------
@@ -581,7 +769,7 @@ return [
         
         'file' => [
             'driver' => 'file',
-            'path' => __DIR__ . '/../storage/queue',
+            'path' => storage_path('queue'),
             'retry_after' => 90,
         ],
         
@@ -627,7 +815,7 @@ return [
         ],
         'file' => [
           'driver' => 'file',
-          'path' =>  env('CACHE_LOCAL_STORAGE') ?: __DIR__ . '/../storage/',
+          'path' =>  env('CACHE_LOCAL_STORAGE') ?: storage_path('cache'),
           'max_files' => 5000,
           'file_perm' => 0644,
         ],
@@ -706,7 +894,7 @@ return [
       'timeout' => null,
       'auth_mode' => null,
       'debug' => false, //debug mode for smtp
-      'from_address' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
+      'from_email' => env('MAIL_FROM_ADDRESS', 'hello@example.com'),
     ],
       // Add other transports as needed
   ]
@@ -874,7 +1062,7 @@ return [
         'lifetime' => env('SESSION_LIFETIME', 120),
         'expire_on_close' => false,
         'encrypt' => false,
-        'files' => __DIR__ . '/../storage/session',
+        'files' => storage_path('session'),
         'connection' => null,
         'table' => 'sessions',
         'store' => null,
@@ -883,7 +1071,7 @@ return [
             'SESSION_COOKIE',
             'machinjiri_session'
         ),
-        'path' => __DIR__ . '/../storage/session',
+        'path' => env('APP_URL', 'http://localhost:3000'),
         'domain' => env('SESSION_DOMAIN'),
         'secure' => env('SESSION_SECURE_COOKIE', false),
         'http_only' => true,

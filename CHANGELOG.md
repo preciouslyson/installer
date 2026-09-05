@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.3 - 2026-08-09
+## 1.3.7 - 2026-08-09
 
 ### Highlights
 
@@ -23,7 +23,7 @@ This release strengthens installer reliability, validation, logging, and user ex
 
 ### Requirements
 
-- PHP 8.3 or newer
+- PHP 8.4 or newer
 - Composer 2.x
 - Required extensions: json, mbstring, openssl, zip, pdo, tokenizer, and ctype
 

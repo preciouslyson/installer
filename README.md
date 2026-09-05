@@ -19,7 +19,7 @@ The installer now supports a more complete project setup experience:
 
 Before running the installer, make sure your environment meets these requirements:
 
-- PHP 8.3 or newer
+- PHP 8.4 or newer
 - Composer 2.x
 - Required PHP extensions: `json`, `mbstring`, `openssl`, `zip`, `pdo`, `tokenizer`, and `ctype`
 
@@ -123,22 +123,26 @@ A typical project scaffold includes:
 your-project/
 ├── app/
 │   ├── Controllers/
+│   ├── Jobs/
 │   ├── Middleware/
 │   ├── Models/
+│   ├── Webhooks/
+│   ├── Tasks/
 │   └── Providers/
 ├── bootstrap/
-│   ├── app.php
-│   ├── artisan.php
-│   └── helpers.php
+│   └── app.php
 ├── config/
-│   ├── app.php
-│   ├── database.php
-│   ├── mail.php
-│   └── providers.php
+│   ├── core/
+│   │   ├── app.php
+│   │   ├── auth.php
+│   │   └── routing.php
+│   └── services/ 
+│       └── providers.php
 ├── database/
 │   ├── factories/
 │   ├── migrations/
-│   └── seeders/
+│   ├── seeders/
+│   └── cache-prefetch-db.php
 ├── public/
 │   ├── src/
 │   │   ├── css/
