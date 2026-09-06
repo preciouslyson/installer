@@ -208,10 +208,7 @@ class Installer
                 'psr-4' => [
                     'App\\' => 'app/',
                     'Mlangeni\\Machinjiri\\Database\\' => "database/",
-                ],
-                'files' => [
-                    'bootstrap/helpers.php',
-                ],
+                ]
             ],
             'autoload-dev' => [
                 'psr-4' => [
@@ -528,14 +525,13 @@ ENV;
         $write($this->getCoreConfigDir() . '/oauth.php', ConfigFiles::OAuthConfigurationTemplate());
         $write($this->getCoreConfigDir() . '/ldap.php', ConfigFiles::ldapConfigurationTemplate());
         $write($this->getCoreConfigDir() . '/redis.php', ConfigFiles::redisConfigurationTemplate());
+        $write($this->getCoreConfigDir() . '/sms.php', ConfigFiles::smsConfigurationTemplate());
         
         /* Database Files */
         $write($this->projectDir . '/database/cache-prefetch-db.php', Database::dbCachePrefetchTemplate());
         
         /* App Bootstrap Files */
-        $write($this->projectDir . '/bootstrap/app.php', Bootstrap::bootstrapTemplate());
-        $write($this->projectDir . '/bootstrap/helpers.php', Bootstrap::helpersFileTemplate());
-        $write($this->projectDir . '/bootstrap/artisan.php', Bootstrap::artisanBootstrapTemplate());
+        $write($this->projectDir . '/bootstrap/app.php', Bootstrap::bootstrapTemplate(), 0444);
         
         /* Root Config Files */
         $write($this->projectDir . '/phpunit.xml', Root::phpunitTemplate());
@@ -549,7 +545,8 @@ ENV;
         $write($this->projectDir . '/resources/views/layouts/error.layout.php', Resources::notFoundLayoutTemplate());
         
         /* Public Entry Files */
-        $write($this->projectDir . '/public/index.php', Publics::publicIndexTemplate());
+        $write($this->projectDir . '/public/index.php', Publics::publicIndexTemplate(), 0444);
+        
         $write($this->projectDir . '/public/.htaccess', Publics::publicHtaccess());
         if ($this->options['starter'] === "default") {
             $write($this->projectDir . '/public/src/js/app.js', Publics::jsTemplate());
