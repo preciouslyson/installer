@@ -261,18 +261,8 @@ class InstallCommand extends Command
             $io->success($projectName . " created successfully");
 
             $summary = new InstallationSummary($targetDir, $projectName, $io);
-            
-            $nextSteps = $io->confirm('Take a little tour?', false);
-            if ($nextSteps) {
-                $summary->displayQuickStart();
-                $summary->displayNextSteps();
-                $summary->displayImportantNotes();
-                $summary->displayResources();
-                $summary->display();
-            } else {
-                $summary->display();
-                $summary->displayQuickStart();
-            }
+            $summary->display();
+            $summary->displayQuickStart();
 
             $logger->displaySummary();
             return Command::SUCCESS;
