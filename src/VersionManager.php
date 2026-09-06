@@ -11,7 +11,11 @@ class VersionManager {
     {
         return [
             'minimum' => '^2.2.3', // minimum installable machinjiri version
-            'installable' => []
+            'installable' => [
+                '2.2.3' => "machinjiri v2.2.3",
+                '2.2.4' => "machinjiri v2.2.4",
+                '2.2.5' => "machinjiri v2.2.5",
+            ]
         ];
     }
 
